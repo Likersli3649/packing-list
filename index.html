@@ -236,6 +236,17 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
       <input id="destInput" type="text" value="United States of America">
       <span class="dest-note">导出装箱单 Ship To Address 使用此内容；箱贴 DESTINATION 自动匹配（如 United States of America→US、Canada→CA）</span>
     </div>
+    <section class="card" id="masterSyncPanel" style="display:none;border:1px solid #fca5a5">
+      <div class="card-title">订单总表同步（隐藏功能）<span class="title-note">多表导入 · PO去重不重复录入 · 数量/颜色增减更新 · J列总箱数 K列总体积 · 出货日期与后整/状态留空</span></div>
+      <div class="import-box">
+        <button id="msLoadMasterBtn" class="btn btn-ghost">📂 加载订单总表</button>
+        <button id="msUploadBtn" class="btn btn-violet">📥 上传更新表(支持多文件多sheet)</button>
+        <button id="msApplyBtn" class="btn btn-green">💾 生成更新版总表</button>
+        <input type="file" id="msMasterInput" accept=".xlsx,.xls">
+        <input type="file" id="msUploadInput" accept=".xlsx,.xls" multiple>
+      </div>
+      <div id="msLog" class="box-tip" style="display:none"></div>
+    </section>
     <div id="resultArea"></div>
   </div>
 </div>
@@ -2157,6 +2168,161 @@ $('barcodeFileInput').addEventListener('change', async e => {
   alert(`Barcodes表导入完成：SKU ${Object.keys(merged).length} 条（累计 ${Object.keys(prev).length}），LOT记录 ${lots.length} 条（仅本次会话）。导入订单或已有颜色时将自动匹配SKU和LOT号`);
 });
 
+/* ==================== 订单总表同步（隐藏功能） ====================
+   暗门：连点左上角 LOGO 5 次 或 Ctrl+Alt+M；与通用订单导入完全分开。
+   流程：加载总表 → 上传更新表(多文件/多sheet) → 生成更新版总表(当日日期文件名)。
+   规则：已有PO不重复录入，只更新数量与颜色增减；新PO追加到末尾；
+   出货日期(G)与后整(H)/状态(I)不填充（更新时保留原值）；J列=总箱数、K列=总体积（按颜色行）。 */
+let msMasterBuf = null;
+let msOrders = [];
+function msLog(msg) {
+  const el = $('msLog');
+  el.style.display = 'block';
+  el.innerHTML = msg;
+}
+function toggleMasterPanel() {
+  const p = $('masterSyncPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+// 按尺码数量估算总箱数/总体积（与装箱算法同口径：整箱+末箱+1+小箱+尾箱）
+function estimatePack(styleNo, qtyBySize) {
+  const param = getStyleParam(styleNo);
+  const bigCbm = 0.096, smallCbm = 0.048; // 60*40*40 / 60*40*20
+  let boxes = 0, cbm = 0;
+  Object.keys(qtyBySize).forEach(sz => {
+    const q = +qtyBySize[sz] || 0;
+    if (q <= 0) return;
+    const stdBig = (param && param.bigBoxQty && param.bigBoxQty[sz]) ?? sizeDefaults.bigQty[sz] ?? 20;
+    const smallMax = (param && param.smallBoxQty && param.smallBoxQty[sz]) ?? sizeDefaults.smallQty[sz] ?? 10;
+    const plan = calcPackPlan(q, stdBig, smallMax);
+    const b = plan.bigStd + (plan.lastBigPlus1 ? 1 : 0) + (plan.bigExtra ? 1 : 0);
+    const s = plan.smallQty > 0 ? 1 : 0;
+    boxes += b + s;
+    cbm += b * bigCbm + s * smallCbm;
+  });
+  return {boxes, cbm: Math.ceil(cbm * 10) / 10};
+}
+// 重建一个PO块：颜色按更新表同步（增/删/改），保留原出货日期/后整/状态
+function msRebuildBlock(bl, o, logs, isNew) {
+  const oldColors = {};
+  bl.rows.forEach(row => {
+    const c = String(row[3] ?? '').trim();
+    if (c) oldColors[c] = row;
+  });
+  const rows = [];
+  let totalQty = 0;
+  o.colors.forEach((c, i) => {
+    const qty = Object.values(c.qty).reduce((a, b) => a + (+b || 0), 0);
+    totalQty += qty;
+    const est = estimatePack(o.style, c.qty);
+    const zhKey = c.zh || colorZH(c.color);
+    const old = oldColors[zhKey] || oldColors[c.color];
+    const row = new Array(11).fill(null);
+    if (old) { row[6] = old[6]; row[7] = old[7]; row[8] = old[8]; } // 出货日期/后整/状态保留原值
+    row[3] = zhKey || c.color;
+    row[4] = qty;
+    row[9] = est.boxes;  // J列 总箱数
+    row[10] = est.cbm;   // K列 总体积
+    if (i === 0) { row[1] = o.style; row[2] = String(o.po).trim(); }
+    rows.push(row);
+    delete oldColors[zhKey]; delete oldColors[c.color];
+  });
+  if (rows[0]) rows[0][5] = totalQty; // F列 总数量
+  const removed = Object.keys(oldColors);
+  logs.push(`${isNew ? '新增' : '更新'} PO ${o.po}（${o.style || '款号?'}）：颜色 ${o.colors.length} 个、共 ${totalQty} 件`
+    + (removed.length ? `；删减颜色 ${removed.join(' / ')}` : ''));
+  return rows;
+}
+function msWriteCell(ws, r0, c, v) {
+  if (v == null || v === '') return;
+  const addr = XLSX.utils.encode_cell({r: r0, c});
+  ws[addr] = typeof v === 'number' ? {t: 'n', v} : {t: 's', v: String(v)};
+}
+async function msApply() {
+  if (typeof XLSX === 'undefined') { alert('XLSX未加载，联网后刷新页面'); return; }
+  if (!msMasterBuf) { alert('请先加载订单总表！'); return; }
+  if (!msOrders.length) { alert('请先上传更新表！'); return; }
+  const wb = XLSX.read(msMasterBuf, {type: 'array'});
+  const ws = wb.Sheets['2026年未出货明细'] || wb.Sheets[wb.SheetNames[0]];
+  const M = XLSX.utils.sheet_to_json(ws, {header: 1, defval: null});
+  const head = M.slice(0, 2); // 标题+表头
+  const dataRows = M.slice(2).filter(row => row && row.some(v => v != null && String(v).trim() !== ''));
+  // 按PO分块（PO列有值的行开启新块）
+  const blocks = [];
+  let cur = null;
+  dataRows.forEach(row => {
+    const po = String(row[2] ?? '').trim();
+    if (po) { cur = {po, rows: []}; blocks.push(cur); }
+    if (!cur) { cur = {po: '', rows: []}; blocks.push(cur); }
+    cur.rows.push(row);
+  });
+  const ordersMap = {};
+  msOrders.forEach(o => { ordersMap[String(o.po).trim()] = o; });
+  const used = {};
+  const out = [];
+  const logs = [];
+  blocks.forEach(bl => {
+    const o = ordersMap[bl.po];
+    if (!o) { out.push(...bl.rows); return; } // 无更新的PO原样保留
+    used[bl.po] = true;
+    out.push(...msRebuildBlock(bl, o, logs, false));
+  });
+  msOrders.forEach(o => { // 新PO追加末尾
+    const key = String(o.po).trim();
+    if (used[key]) return;
+    out.push(...msRebuildBlock({po: key, rows: []}, o, logs, true));
+  });
+  // 款号列压缩：连续同款号只在首行保留（供B列合并）
+  let lastSt = null;
+  out.forEach(row => {
+    if (row[1] != null) {
+      if (row[1] === lastSt) row[1] = null;
+      else lastSt = row[1];
+    }
+  });
+  const newM = head.concat(out);
+  // 清空数据区旧单元格（保留标题/表头行）
+  for (const k of Object.keys(ws)) {
+    if (k[0] === '!') continue;
+    if (XLSX.utils.decode_cell(k).r >= 2) delete ws[k];
+  }
+  // 写入新矩阵（未更新行含L列以后备注，原样写回）
+  for (let i = 0; i < newM.length; i++) {
+    const row = newM[i];
+    const maxC = i >= 2 ? Math.max(11, row.length) : row.length;
+    for (let c = 0; c < maxC; c++) msWriteCell(ws, i, c, row[c] ?? null);
+  }
+  // F列总数量：按PO块写SUM公式（与原表口径一致）
+  for (let i = 2; i < newM.length; i++) {
+    const po = String(newM[i][2] ?? '').trim();
+    if (!po) continue;
+    let j = i;
+    while (j + 1 < newM.length && !String(newM[j + 1][2] ?? '').trim()) j++;
+    const total = newM.slice(i, j + 1).reduce((s, r2) => s + (+r2[4] || 0), 0);
+    ws[XLSX.utils.encode_cell({r: i, c: 5})] = {t: 'n', f: i === j ? `SUM(E${i + 1})` : `SUM(E${i + 1}:E${j + 1})`, v: total};
+    i = j;
+  }
+  // 合并格：保留表头区原有合并 + 重建B列款号合并
+  const oldMerges = (ws['!merges'] || []).filter(m => m.e.r <= 1);
+  const bMerges = [];
+  let runStart = -1;
+  for (let i = 2; i < newM.length; i++) {
+    if (newM[i][1] != null) {
+      if (runStart >= 0 && i - 1 > runStart) bMerges.push({s: {r: runStart, c: 1}, e: {r: i - 1, c: 1}});
+      runStart = i;
+    }
+  }
+  if (runStart >= 0 && newM.length - 1 > runStart) bMerges.push({s: {r: runStart, c: 1}, e: {r: newM.length - 1, c: 1}});
+  ws['!merges'] = oldMerges.concat(bMerges);
+  ws['!ref'] = 'A1:' + XLSX.utils.encode_cell({r: Math.max(newM.length - 1, 2), c: 15});
+  // 以当日日期命名导出
+  const d = new Date();
+  const ds = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  XLSX.writeFile(wb, `2026年订单${ds}更新版.xlsx`);
+  msLog('<b>总表已更新并下载（' + ds + '）：</b><br>' + logs.join('<br>')
+    + '<br><i>下载后的更新版会由本机计划任务自动移入 D:\\2026QUINCE（也可手动保存过去）。</i>');
+}
+
 /* ==================== 登录与事件绑定 ==================== */
 $('loginSubmit').addEventListener('click', () => {
   if (sha256($('userAcc').value.trim()) === ACCOUNT_HASH
@@ -2186,6 +2352,50 @@ $('addSizeBtn').addEventListener('click', () => {
   state.sizes.push('NewSize');
   renderSizeBar();
   onSizesChanged();
+});
+
+/* ===== 暗门：连点 LOGO 5 次 或 Ctrl+Alt+M 打开/关闭“订单总表同步”面板 ===== */
+let logoClicks = 0, logoTimer = null;
+const logoEl = document.querySelector('.brand-logo');
+if (logoEl) logoEl.addEventListener('click', () => {
+  logoClicks++;
+  clearTimeout(logoTimer);
+  logoTimer = setTimeout(() => { logoClicks = 0; }, 2500);
+  if (logoClicks >= 5) { logoClicks = 0; toggleMasterPanel(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.altKey && String(e.key).toLowerCase() === 'm') { e.preventDefault(); toggleMasterPanel(); }
+});
+$('msLoadMasterBtn').addEventListener('click', () => $('msMasterInput').click());
+$('msUploadBtn').addEventListener('click', () => $('msUploadInput').click());
+$('msApplyBtn').addEventListener('click', msApply);
+$('msMasterInput').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  msMasterBuf = await f.arrayBuffer();
+  e.target.value = '';
+  const wb = XLSX.read(msMasterBuf, {type: 'array'});
+  msLog('总表已加载：' + wb.SheetNames.join(' / '));
+});
+$('msUploadInput').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  let ok = 0, skip = 0;
+  for (const f of files) {
+    const wb = XLSX.read(await f.arrayBuffer());
+    wb.SheetNames.forEach(sn => {
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1});
+      const res = parseOrderSheet(data);
+      if (res.error || !res.poNum || !res.colorList.length) { skip++; return; }
+      msOrders = msOrders.filter(o => String(o.po).trim() !== String(res.poNum).trim()); // 同PO后传覆盖
+      msOrders.push({po: res.poNum, style: res.styleNo,
+        colors: res.colorList.map(c => ({color: c.color, zh: c.zh, qty: c.qty}))});
+      ok++;
+    });
+  }
+  e.target.value = '';
+  msLog(`更新表已读取：有效制单 ${ok} 个、跳过 ${skip} 个sheet（非制单格式）。待处理PO：`
+    + msOrders.map(o => o.po).join('、') + '。点击“生成更新版总表”应用。');
 });
 </script>
 </body>
