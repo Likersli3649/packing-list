@@ -1137,6 +1137,7 @@ function recalcTotals() {
     pcs += r.qty; nw += +r.nw; gw += +r.gw; cbm += +r.cbm;
     const c = r.ctns || 1;
     if (r.H >= bigH) big += c; else small += c;
+    r.boxType = r.H >= bigH ? 'big' : 'small'; // 同步箱型，导出与汇总同口径
   });
   totalSummary.totalPCS = pcs;
   totalSummary.totalNW = nw;
@@ -1518,11 +1519,13 @@ async function exportGeneralPacking() {
       packMap[pd.color][pd.size] += pd.qty;
     }
   });
-  // 大箱/小箱数量统计
+  // 大箱/小箱数量统计（按当前箱高实时归类，手动改高后导出跟随更新）
+  const bigHNow = num('bigH', 40);
   let bigBoxCnt = 0, smallBoxCnt = 0;
   packData.forEach(pd => {
-    if (pd.boxType === 'small') smallBoxCnt += (pd.ctns || 1);
-    else if (pd.boxType === 'big') bigBoxCnt += (pd.ctns || 1);
+    if (pd._secondary) return;
+    if ((pd.H ?? bigHNow) < bigHNow) smallBoxCnt += (pd.ctns || 1);
+    else bigBoxCnt += (pd.ctns || 1);
   });
 
   const boxCfgNow = {
@@ -1618,7 +1621,7 @@ async function exportGeneralPacking() {
     let s = pd.cartonNo, e = pd.cartonNo, ctns = pd.ctns || 1;
     if (String(pd.cartonNo).indexOf('-') !== -1) { const p = String(pd.cartonNo).split('-'); s = p[0]; e = p[1]; }
     const perCarton = Math.round(pd.qty / ctns);
-    const isSmall = pd.boxType === 'small';
+    const isSmall = (pd.H ?? bigHNow) < bigHNow; // 实时按箱高归类，改高后导出跟随
     // 混箱行浅紫填充；小箱行黄色填充（混箱优先紫色）
     const fill = pd._mixed ? purpleFill : (isSmall ? yellowFill : null);
     const applyFill = c => { if (fill) sheet.getCell(r, c).fill = fill; };
