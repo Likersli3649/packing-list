@@ -1645,6 +1645,25 @@ async function exportGeneralPacking() {
     r++;
   });
 
+  // ===== 明细总计行（总箱数/各码合计/总件数/总NW/总GW/总CBM） =====
+  let tPcs = 0, tNw = 0, tGw = 0, tCbm = 0, tCtns = 0;
+  packData.forEach(pd => { if (pd._secondary) return; tPcs += pd.qty; tNw += +pd.nw; tGw += +pd.gw; tCbm += +pd.cbm; tCtns += (pd.ctns || 1); });
+  const totalFill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFDDEBF7'}};
+  const tPut = (c, v) => { put(r, c, v, FT(11, true, FZ), CTR); sheet.getCell(r, c).border = B; sheet.getCell(r, c).fill = totalFill; };
+  sheet.mergeCells(r, colCTN1, r, colCTN1 + 2); tPut(colCTN1, 'TOTAL');
+  for (let c = colCTN1 + 1; c <= colCTN1 + 2; c++) { sheet.getCell(r, c).border = B; sheet.getCell(r, c).fill = totalFill; }
+  tPut(colCTNS, tCtns);
+  tPut(colCODE, '');
+  tPut(colCOLOR, '');
+  tPut(colGRP, '');
+  sizes.forEach((sz, i) => { let s = 0; colorOrder.forEach(c => { s += packMap[c]?.[sz] || 0; }); tPut(sizeStart + i, s); });
+  tPut(colPCS, tPcs);
+  tPut(colNW, tNw.toFixed(3));
+  tPut(colGW, tGw.toFixed(3));
+  tPut(colCBM, tCbm.toFixed(4));
+  sheet.getRow(r).height = 18;
+  r++;
+
   // ===== 箱规区块 =====
   const boxSec = r;
   mergeRow(boxSec, 1, totalCols, '箱规参数', FT(11, true, FZ), LFT); sheet.getRow(boxSec).height = 18; r++;
