@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>商锦智能装箱系统 · PACKING LIST</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+<style>
+:root{
+  --primary:#2563eb; --primary-deep:#1d4ed8;
+  --green:#059669; --amber:#d97706; --violet:#7c3aed;
+  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b;
+  --line:#e2e8f0; --line-2:#d3dce6; --bg:#f1f5f9; --card:#ffffff;
+  --ring:0 0 0 3px rgba(37,99,235,.14);
+  --shadow:0 1px 2px rgba(15,23,42,.05),0 6px 20px rgba(15,23,42,.07);
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%}
+body{font-family:"Segoe UI","Microsoft YaHei",Arial,sans-serif;font-size:13px;color:var(--ink-2);background:var(--bg);padding:0}
+input,select,button{font-family:inherit}
+input[type=text],input[type=number],input[type=password],select{
+  height:36px;padding:0 10px;border:1px solid var(--line-2);border-radius:8px;
+  font-size:13px;color:var(--ink-2);background:#fff;transition:border-color .15s,box-shadow .15s;
+}
+input:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:var(--ring)}
+input::placeholder{color:#9aa7b8}
+body.login-page{width:100vw;height:100vh;background:linear-gradient(135deg,#1e3a8a 0%,#312e81 55%,#4c1d95 100%);display:flex;justify-content:center;align-items:center;overflow:hidden;padding:0}
+.login-modal{width:min(420px,92vw);background:#fff;padding:38px 34px;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.4)}
+.login-modal h3{text-align:center;margin-bottom:8px;font-size:20px;color:var(--ink);font-weight:700}
+.login-modal .login-sub{text-align:center;color:var(--ink-3);font-size:12px;letter-spacing:2px;margin-bottom:26px}
+.login-item{margin-bottom:16px}
+.login-item label{display:block;margin-bottom:6px;font-weight:600;color:var(--ink-2);font-size:13px}
+.login-item input{width:100%;height:42px;padding:0 12px;border-radius:8px;font-size:14px}
+.login-btn{width:100%;height:44px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;box-shadow:0 6px 18px rgba(37,99,235,.35);transition:.2s}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(37,99,235,.45)}
+#mainPage{display:none}
+.app-header{position:sticky;top:0;z-index:60;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 10px rgba(15,23,42,.06)}
+.app-header .inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px clamp(14px,2.5vw,28px);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:15px;letter-spacing:.5px;box-shadow:0 4px 12px rgba(79,70,229,.35)}
+.brand-name{font-size:17px;font-weight:700;color:var(--ink);line-height:1.2}
+.brand-sub{font-size:11px;color:var(--ink-3);letter-spacing:2.5px}
+.header-meta{font-size:12px;color:var(--ink-3);background:#f1f5f9;border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+.container{width:100%;max-width:1440px;margin:0 auto;padding:22px clamp(12px,2.5vw,28px) 48px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px clamp(14px,2vw,24px);margin-bottom:18px}
+.card-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:16px;flex-wrap:wrap}
+.card-title::before{content:'';width:4px;height:16px;border-radius:2px;background:linear-gradient(180deg,#2563eb,#7c3aed)}
+.card-title .title-note{margin-left:auto;font-size:12px;font-weight:400;color:var(--ink-3)}
+.size-top-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.size-top-bar label{font-size:14px;font-weight:700;color:var(--ink);width:auto}
+.size-input-group{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+.size-top-input{width:76px;text-align:center}
+#addSizeBtn{padding:7px 14px;background:#eef2ff;color:var(--primary-deep);border:1px solid #c7d2fe;border-radius:8px;cursor:pointer;font-weight:600;transition:.15s}
+#addSizeBtn:hover{background:#e0e7ff}
+.top-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;padding:16px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}
+.top-info .item{display:flex;align-items:center;gap:8px}
+.top-info label{width:92px;font-weight:600;color:var(--ink-2);white-space:nowrap}
+.top-info input{flex:1;min-width:0}
+.import-box{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:6px 0 2px}
+#fileInput,#skuFileInput,#barcodeFileInput{display:none}
+#skuDbInfo{font-size:12px;color:var(--ink-3);width:100%;text-align:center}
+.btn{height:42px;padding:0 26px;border:none;border-radius:10px;font-size:14px;font-weight:600;letter-spacing:.5px;cursor:pointer;color:#fff;box-shadow:0 2px 8px rgba(15,23,42,.14);transition:transform .15s,box-shadow .15s,filter .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.2);filter:brightness(1.05)}
+.btn:active{transform:translateY(0)}
+.btn-blue{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.btn-green{background:linear-gradient(135deg,#10b981,#047857)}
+.btn-amber{background:linear-gradient(135deg,#f59e0b,#b45309)}
+.btn-violet{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
+.btn-ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line-2);box-shadow:none}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary-deep);background:#f8fafc}
+.btn-soft{background:#eef2ff;color:var(--primary-deep);border:1px solid #c7d2fe;box-shadow:none}
+.btn-soft:hover{background:#e0e7ff}
+.carton-load-set{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-bottom:16px}
+.box-column{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:18px}
+.box-title{font-size:15px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);color:var(--primary-deep)}
+.box-param-row,.load-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px}
+.box-param-row span,.load-row span{width:96px;font-size:13px;color:var(--ink-2)}
+.box-param-row input,.load-row input{flex:1;max-width:120px;text-align:center}
+.unit{width:40px;font-size:12px;color:var(--ink-3)}
+.size-qty-title{margin:14px 0 8px;font-size:13px;font-weight:700;color:var(--primary-deep)}
+.box-tip{padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;margin-bottom:16px;font-size:12.5px;color:#92400e;line-height:1.7}
+.mixed-box-set{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 16px;background:#faf5ff;border:1px solid #d8b4fe;border-radius:10px}
+.mixed-toggle{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:#6b21a8;cursor:pointer}
+.mixed-toggle input{width:18px;height:18px;cursor:pointer;accent-color:var(--violet)}
+.mixed-sizes-wrap{display:none;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2)}
+.mixed-sizes-wrap select{padding:6px 10px;border:1px solid #c4b5fd;border-radius:8px;font-size:13.5px;cursor:pointer;height:auto}
+.weight-line{display:flex;gap:16px;flex-wrap:wrap}
+.weight-line div{display:flex;align-items:center;gap:6px}
+.weight-line span{font-weight:700;color:var(--ink-2)}
+.weight-line input{width:84px;text-align:center}
+.barcode-hint{padding:12px 14px;background:#f0fdf4;border:1px dashed #86efac;border-radius:10px;margin-bottom:14px;font-size:12.5px;color:#166534;line-height:1.7}
+.add-btn-box{margin:4px 0 14px;text-align:left}
+#addColorBtn{height:38px;padding:0 18px;border-radius:9px}
+.color-block{border:1px solid var(--line);padding:16px;border-radius:10px;margin-bottom:14px;background:#fbfcfe;transition:box-shadow .15s}
+.color-block:hover{box-shadow:0 4px 14px rgba(15,23,42,.08)}
+.color-header{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.color-fields{display:flex;gap:14px;flex-wrap:wrap}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-3);margin-bottom:5px;letter-spacing:.4px}
+.color-code-input{width:min(260px,70vw)}
+.color-zh-input{width:min(180px,50vw)}
+.color-total-row{font-weight:700;color:var(--ink);font-size:13px;padding-bottom:8px}
+.size-barcode-row{display:flex;justify-content:flex-start;align-items:center;margin:8px 0;gap:10px;flex-wrap:wrap}
+.size-barcode-row .sz-label{width:44px;font-weight:700;color:var(--ink-2)}
+.qty-input{width:92px}
+.barcode-input{flex:1;min-width:170px}
+.barcode-preview{color:#8a97a8;font-size:12px;white-space:nowrap}
+.lot-input{width:110px;padding:4px 6px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;text-align:center}
+.lot-input:focus{outline:none;box-shadow:0 0 0 3px rgba(245,158,11,.18);border-color:var(--amber)}
+.btn-generate{margin:26px 0;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+#exportBtn,#labelBtn{display:none} /* 生成清单后由脚本置为 inline-block；如需隐藏某按钮把对应行改 'none'，重开改回 'inline-block'，功能代码无需重写 */
+.dest-bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;margin-bottom:18px}
+.dest-bar label{font-weight:700;color:#166534;white-space:nowrap}
+.dest-bar input{flex:1;min-width:220px;max-width:460px}
+.dest-note{font-size:12px;color:var(--ink-3);width:100%}
+#resultArea .table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:1150px;background:#fff}
+th,td{border:1px solid #cbd5e1;padding:8px 5px;text-align:center;vertical-align:middle;font-size:12.5px}
+th{background:#f1f5f9;font-weight:700;white-space:nowrap;color:var(--ink)}
+.row-edit{width:66px;padding:3px 2px;border:1px solid #94a3b8;border-radius:4px;text-align:center;background:#fffef5;height:auto}
+.row-edit:focus{outline:2px solid var(--primary);border-color:var(--primary)}
+.total-tr{background:#e8f2ff;font-weight:bold}
+tr.row-small td{background:#fff59d;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.total-summary{margin-top:18px;padding:18px 20px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;line-height:2;font-weight:bold;color:var(--ink)}
+@media (max-width:900px){
+  .brand-sub{display:none}
+  .top-info{grid-template-columns:1fr}
+  .color-header{flex-direction:column;align-items:flex-start}
+  .btn{padding:0 18px}
+}
+@media print{
+  .app-header,.card,.btn-generate,.dest-bar,.login-modal,.size-top-bar{display:none!important}
+  body{background:#fff}
+  #resultArea .table-scroll{border:none;overflow:visible}
+  table{min-width:0}
+}
+</style>
+</head>
+<body class="login-page">
+<div class="login-modal" id="loginModal">
+  <h3>系统登录</h3>
+  <div class="login-sub">SUNGIN PACKING WORKSPACE</div>
+  <div class="login-item"><label>账号 (手机号)</label><input type="text" id="userAcc" placeholder="请输入账号"></div>
+  <div class="login-item"><label>密码</label><input type="password" id="userPwd" placeholder="请输入密码"></div>
+  <button class="login-btn" id="loginSubmit">登录进入系统</button>
+</div>
+<div id="mainPage">
+  <header class="app-header">
+    <div class="inner">
+      <div class="brand">
+        <span class="brand-logo">SJ</span>
+        <div>
+          <div class="brand-name">商锦智能装箱系统</div>
+          <div class="brand-sub">PACKING LIST WORKSPACE</div>
+        </div>
+      </div>
+      <div class="header-meta">出口装箱单工作台 · V2.0</div>
+    </div>
+  </header>
+  <div class="container">
+    <section class="card">
+      <div class="card-title">订单信息<span class="title-note">上传订单Excel可自动导入 PO / 款号 / Product / 尺码 / 颜色(CODE+COLOR) / 数量</span></div>
+      <div class="size-top-bar">
+        <label>Size</label>
+        <div class="size-input-group" id="sizeGroupWrap"></div>
+        <button id="addSizeBtn">+新增尺码</button>
+      </div>
+      <div class="top-info">
+        <div class="item"><label>PO #</label><input id="poInput" type="text"></div>
+        <div class="item"><label>默认LOT(可选)</label><input id="lotInput" type="text" placeholder="颜色行LOT为空时的兜底值"></div>
+        <div class="item"><label>Style #</label><input id="styleInput" type="text"></div>
+        <div class="item"><label>Product</label><input id="prodInput" type="text" value="针织毛衣"></div>
+      </div>
+      <div class="import-box">
+        <button id="importExcelBtn" class="btn btn-violet">📥 上传订单Excel自动导入数据</button>
+        <button id="importSkuBtn" class="btn btn-ghost">🏷️ 更新SKU资料库</button>
+        <button id="importBarcodeBtn" class="btn btn-ghost">🔖 导入Barcodes表(自动匹配SKU)</button>
+        <span id="skuDbInfo"></span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <input type="file" id="skuFileInput" accept=".xlsx,.xls">
+        <input type="file" id="barcodeFileInput" accept=".xlsx,.xls">
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-title">箱规参数与装箱策略</div>
+      <div class="carton-load-set">
+        <div class="box-column">
+          <div class="box-title">大箱参数设置</div>
+          <div id="bigBoxParams"></div>
+          <div class="size-qty-title">各尺码每箱件数</div>
+          <div id="bigBoxQtyWrap"></div>
+        </div>
+        <div class="box-column">
+          <div class="box-title">小箱参数设置</div>
+          <div id="smallBoxParams"></div>
+          <div class="size-qty-title">各尺码每箱件数</div>
+          <div id="smallBoxQtyWrap"></div>
+        </div>
+      </div>
+      <div class="box-tip">提示：生成装箱清单后，可直接在表格里修改某一箱的 件数 / 长 / 宽 / 高（如溢装时把该箱高度调大、件数调多），该箱的 CBM、净重、毛重和下方整单合计会自动重算，导出 Excel 使用修改后的数值。</div>
+      <div class="mixed-box-set">
+        <label class="mixed-toggle">
+          <input type="checkbox" id="mixedEnable">
+          开启混箱模式（整箱优先，零头按尺码混装，不允许溢装；混箱同样参与小箱判定）
+        </label>
+        <span class="mixed-sizes-wrap" id="mixedSizesWrap">
+          每箱混装尺码种数：
+          <select id="mixedSizeCount">
+            <option value="2">2种</option>
+            <option value="3" selected>3种</option>
+            <option value="4">4种</option>
+            <option value="5">5种</option>
+          </select>
+        </span>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-title">单件净重 NW(KG/件)</div>
+      <div class="weight-line" id="weightWrap"></div>
+    </section>
+    <section class="card">
+      <div class="card-title">颜色 / SKU / LOT<span class="title-note">CODE = 英文颜色，COLOR = 中文颜色，导入订单时自动匹配填充</span></div>
+      <div class="barcode-hint">条码固定格式：<b>SKU-SGK001-PO</b>（例如 LB137702-SGK001-69099）。下方每格只需填写 <b>SKU</b>（如 LB137702），-SGK001-PO 会自动拼接（PO 取顶部 PO#）。导入订单时会按 款号+颜色+尺码 从 SKU 资料库自动匹配填充，填充后仍可手动修改；未录入的颜色 SKU 留空自行填写，<b>填写后自动存入本地资料库</b>，下次同色导入直接匹配；也可用“更新SKU资料库”导入新库保存匹配。</div>
+      <div id="colorWrap" class="color-input-wrap"></div>
+    </section>
+    <div class="btn-generate">
+      <button id="genBtn" class="btn btn-blue">生成装箱清单</button>
+      <button id="exportBtn" class="btn btn-green">导出Excel</button>
+      <button id="labelBtn" class="btn btn-amber">导出箱贴</button>
+      <button id="genPackBtn" class="btn btn-violet">导出通用装箱单</button>
+    </div>
+    <div class="dest-bar" id="destBar">
+      <label>收货目的地 Ship To Address</label>
+      <input id="destInput" type="text" value="United States of America">
+      <span class="dest-note">导出装箱单 Ship To Address 使用此内容；箱贴 DESTINATION 自动匹配（如 United States of America→US、Canada→CA）</span>
+    </div>
+    <div id="resultArea"></div>
+  </div>
+</div>
+<script>
+'use strict';
+/* ==================== 工具函数 ==================== */
+const $ = id => document.getElementById(id);
+const num = (id, fb = 0) => { const v = parseFloat($(id)?.value); return isNaN(v) ? fb : v; };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stdKey = s => s.trim().replace(/\s/g, '').replace(/-+/g, '-').toUpperCase();
+
+/* 紧凑型 SHA-256（ASCII 输入，公共领域实现）。登录凭据只以哈希形式存放。
+   注意：纯前端校验只能作为礼貌性拦截，不能当作真正的安全机制。 */
+function sha256(ascii) {
+  function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+  const mathPow = Math.pow, maxWord = mathPow(2, 32);
+  let result = '', words = [], asciiBitLength = ascii.length * 8;
+  let hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [], primeCounter = k.length;
+  const isComposite = {};
+  for (let candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (let i = 0; i < ascii.length; i++) {
+    const j = ascii.charCodeAt(i);
+    if (j >> 8) return ''; // 仅支持 ASCII
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = (asciiBitLength / maxWord) | 0;
+  words[words.length] = asciiBitLength;
+  for (let j = 0; j < words.length;) {
+    const w = words.slice(j, j += 16);
+    const oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (let i = 0; i < 64; i++) {
+      const w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+      const temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e & hash[5]) ^ ((~e) & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+          ) | 0);
+      const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (let i = 0; i < 8; i++) {
+    for (let j = 3; j + 1; j--) {
+      const b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+/* ==================== 款号参数库 ==================== */
+const styleParamLib = {
+  "W-SWT-37":  {weight:{XS:0.733,S:0.796,M:0.854,L:0.901,XL:0.961}, bigBoxQty:{XS:18,S:16,M:16,L:14,XL:12}, smallBoxQty:{XS:9,S:8,M:8,L:7,XL:6}},
+  "W-SWT-59":  {weight:{XS:0.659,S:0.700,M:0.740,L:0.816,XL:0.906}, bigBoxQty:{XS:22,S:20,M:18,L:18,XL:16}, smallBoxQty:{XS:11,S:10,M:9,L:9,XL:8}},
+  "W-SWT-60":  {weight:{XS:0.711,S:0.775,M:0.839,L:0.905,XL:0.961}, bigBoxQty:{XS:20,S:18,M:16,L:16,XL:14}, smallBoxQty:{XS:10,S:9,M:8,L:8,XL:7}},
+  "W-SWT-64":  {weight:{XS:0.660,S:0.692,M:0.742,L:0.796,XL:0.882}, bigBoxQty:{XS:22,S:20,M:18,L:18,XL:16}, smallBoxQty:{XS:11,S:10,M:9,L:9,XL:8}},
+  "W-SWT-165": {weight:{XS:0.334,S:0.361,M:0.384,L:0.414,XL:0.444}, bigBoxQty:{XS:46,S:42,M:40,L:36,XL:34}, smallBoxQty:{XS:23,S:22,M:20,L:18,XL:17}},
+  "W-SWT-166": {weight:{XS:0.367,S:0.383,M:0.411,L:0.443,XL:0.476}, bigBoxQty:{XS:40,S:40,M:36,L:34,XL:30}, smallBoxQty:{XS:20,S:20,M:18,L:17,XL:15}},
+  "W-SWT-195": {weight:{XS:0.540,S:0.575,M:0.598,L:0.635,XL:0.650}, bigBoxQty:{XS:26,S:24,M:22,L:22,XL:20}, smallBoxQty:{XS:13,S:12,M:11,L:11,XL:10}},
+  "W--103":    {weight:{XS:0.577,S:0.615,M:0.655,L:0.711,XL:0.793}, bigBoxQty:{XS:22,S:20,M:18,L:18,XL:16}, smallBoxQty:{XS:11,S:10,M:9,L:9,XL:8}}
+};
+/* ==================== SKU资料库（内嵌默认，可用“更新SKU资料库”上传刷新） ==================== */
+const SKU_SEED=[
+["W-SWT-120","Black",{"L":"LB72576","M":"LB72575","S":"LB72574","XS":"LB72573"}],
+["W-SWT-120","Brown",{"L":"LB78040","M":"LB78037","S":"LB78034","XS":"LB78031"}],
+["W-SWT-120","Charcoal",{"L":"LB78039","M":"LB78036","S":"LB78033","XS":"LB78030"}],
+["W-SWT-120","Deep Navy",{"L":"LB78038","M":"LB78035","S":"LB78032","XS":"LB78029"}],
+["W-SWT-60","Shell Pink",{"XL":"LB137705","L":"LB137703","M":"LB137701","S":"LB137699","XS":"LB137697"}],
+["W-SWT-60","Sapphire Blue",{"XL":"LB137704","L":"LB137702","M":"LB137700","S":"LB137698","XS":"LB137696"}],
+["W-SWT-60","Herb Green",{"XL":"LB110148","L":"LB110144","M":"LB110140","S":"LB110136","XS":"LB110132"}],
+["W-SWT-60","Marled Rose Pink",{"XL":"LB110147","L":"LB110143","M":"LB110139","S":"LB110135","XS":"LB110131"}],
+["W-SWT-60","Redwood Brown",{"XL":"LB110146","L":"LB110142","M":"LB110138","S":"LB110134","XS":"LB110130"}],
+["W-SWT-60","Big Sur Green",{"XL":"LB110145","L":"LB110141","M":"LB110137","S":"LB110133","XS":"LB110129"}],
+["W-SWT-60","Vintage Rose",{"XL":"LB96064","L":"LB96063","M":"LB96062","S":"LB96061","XS":"LB96060"}],
+["W-SWT-60","Offwhite/Black Stripe",{"XL":"LB77368","L":"LB77366","M":"LB77364","S":"LB77362","XS":"LB77360"}],
+["W-SWT-60","Navy",{"XL":"LB77367","L":"LB77365","M":"LB77363","S":"LB77361","XS":"LB77359"}],
+["W-SWT-60","Speckled Beige",{"XL":"LB65386","L":"LB65384","M":"LB65382","S":"LB65380","XS":"LB65378"}],
+["W-SWT-60","Sky Blue",{"XL":"LB65385","L":"LB65383","M":"LB65381","S":"LB65379","XS":"LB65377"}],
+["W-SWT-60","Camel",{"XL":"LB45101","L":"LB45098","M":"LB45095","S":"LB45092","XS":"LB45089"}],
+["W-SWT-60","Black",{"XL":"LB45100","L":"LB45097","M":"LB45094","S":"LB45091","XS":"LB45088"}],
+["W-SWT-60","Ivory",{"XL":"LB45099","L":"LB45096","M":"LB45093","S":"LB45090","XS":"LB45087"}],
+["W-SWT-64","Herb Green",{"XL":"LB110188","L":"LB110184","M":"LB110180","S":"LB110176","XS":"LB110172"}],
+["W-SWT-64","Navy",{"XL":"LB110187","L":"LB110183","M":"LB110179","S":"LB110175","XS":"LB110171"}],
+["W-SWT-64","Big Sur Green",{"XL":"LB110186","L":"LB110182","M":"LB110178","S":"LB110174","XS":"LB110170"}],
+["W-SWT-64","Heather Brown",{"XL":"LB110185","L":"LB110181","M":"LB110177","S":"LB110173","XS":"LB110169"}],
+["W-SWT-64","Speckled Beige",{"XL":"LB96089","L":"LB96088","M":"LB96087","S":"LB96086","XS":"LB96085"}],
+["W-SWT-64","Sky Blue",{"XL":"LB65376","L":"LB65375","M":"LB65374","S":"LB65373","XS":"LB65372"}],
+["W-SWT-64","Camel",{"XL":"LB46461","L":"LB46458","M":"LB46455","S":"LB46452","XS":"LB46449"}],
+["W-SWT-64","Black",{"XL":"LB46460","L":"LB46457","M":"LB46454","S":"LB46451","XS":"LB46448"}],
+["W-SWT-64","Ivory",{"XL":"LB46459","L":"LB46456","M":"LB46453","S":"LB46450","XS":"LB46447"}],
+["W-SWT-37","Camel",{"XL":"LB77322","L":"LB77318","M":"LB77314","S":"LB77310","XS":"LB77306"}],
+["W-SWT-37","Charcoal",{"XL":"LB77321","L":"LB77317","M":"LB77313","S":"LB77309","XS":"LB77305"}],
+["W-SWT-37","Navy",{"XL":"LB77320","L":"LB77316","M":"LB77312","S":"LB77308","XS":"LB77304"}],
+["W-SWT-37","Speckled Beige",{"XL":"LB65371","L":"LB65370","M":"LB65369","S":"LB65368","XS":"LB65367"}],
+["W-SWT-37","Black",{"XL":"LB37708","L":"LB37706","M":"LB37704","S":"LB37702","XS":"LB37700"}],
+["W-SWT-37","Ivory",{"XL":"LB37707","L":"LB37705","M":"LB37703","S":"LB37701","XS":"LB37699"}],
+["W-SWT-37","Agave",{"XL":"LB37847","L":"LB37846","M":"LB37845","S":"LB37844","XS":"LB37843"}],
+["W-SWT-195","Off White/Navy/Red Variegated Stripe",{"XL":"LB140307","L":"LB140305","M":"LB140303","S":"LB140301","XS":"LB140299"}],
+["W-SWT-195","Cornflower Mini Stripe",{"XL":"LB140306","L":"LB140304","M":"LB140302","S":"LB140300","XS":"LB140298"}],
+["W-SWT-195","Sky Blue",{"XL":"LB140267","L":"LB140265","M":"LB140263","S":"LB140261","XS":"LB140259"}],
+["W-SWT-195","Heather Dove Grey",{"XL":"LB140266","L":"LB140264","M":"LB140262","S":"LB140260","XS":"LB140258"}],
+["W-SWT-195","Speckled Beige",{"XL":"LB107687","L":"LB107684","M":"LB107681","S":"LB107678","XS":"LB107675"}],
+["W-SWT-195","Ivory",{"XL":"LB107686","L":"LB107683","M":"LB107680","S":"LB107677","XS":"LB107674"}],
+["W-SWT-195","Navy",{"XL":"LB107685","L":"LB107682","M":"LB107679","S":"LB107676","XS":"LB107673"}],
+["W-SWT-59","Ivory/Sky Blue Stripe",{"XL":"LB140292","L":"LB140290","M":"LB140288","S":"LB140286","XS":"LB140284"}],
+["W-SWT-59","Bubblegum/Fudge Mariner Stripe",{"XL":"LB140291","L":"LB140289","M":"LB140287","S":"LB140285","XS":"LB140283"}],
+["W-SWT-59","Charcoal/Offwhite Stripe",{"XL":"LB77358","L":"LB77356","M":"LB77354","S":"LB77352","XS":"LB77350"}],
+["W-SWT-59","Camel/Black",{"XL":"LB77357","L":"LB77355","M":"LB77353","S":"LB77351","XS":"LB77349"}],
+["W-SWT-59","Speckled Beige/Ivory",{"XL":"LB65401","L":"LB65400","M":"LB65399","S":"LB65398","XS":"LB65397"}],
+["W-SWT-59","Heather Brown/Ivory",{"XL":"LB65396","L":"LB65395","M":"LB65394","S":"LB65393","XS":"LB65392"}],
+["W-SWT-59","Navy/White",{"XL":"LB45085","L":"LB45083","M":"LB45081","S":"LB45079","XS":"LB45077"}],
+["W-SWT-59","Ivory/Black",{"XL":"LB45084","L":"LB45082","M":"LB45080","S":"LB45078","XS":"LB45076"}],
+["W-SWT-166","Sapphire Blue",{"XL":"LB152863","L":"LB152860","M":"LB152857","S":"LB152854","XS":"LB152851"}],
+["W-SWT-166","Heather Dove Grey",{"XL":"LB152862","L":"LB152859","M":"LB152856","S":"LB152853","XS":"LB152850"}],
+["W-SWT-166","Black",{"XL":"LB152861","L":"LB152858","M":"LB152855","S":"LB152852","XS":"LB152849"}],
+["W-SWT-166","Ivory",{"XL":"LB89979","L":"LB89976","M":"LB89973","S":"LB89970","XS":"LB89967"}],
+["W-SWT-166","Speckled Beige",{"XL":"LB89978","L":"LB89975","M":"LB89972","S":"LB89969","XS":"LB89966"}],
+["W-SWT-166","Navy",{"XL":"LB89977","L":"LB89974","M":"LB89971","S":"LB89968","XS":"LB89965"}],
+["W-SWT-165","Ivory",{"S":"LB89953","XL":"LB89962","L":"LB89959","M":"LB89956","XS":"LB89950"}],
+["W-SWT-165","Speckled Beige",{"XL":"LB89964","L":"LB89961","M":"LB89958","S":"LB89955","XS":"LB89952"}],
+["W-SWT-165","Black",{"XL":"LB89963","L":"LB89960","M":"LB89957","S":"LB89954","XS":"LB89951"}],
+["W--103","Charcoal/Offwhite Stripe",{"XL":"LB77303","L":"LB77302","M":"LB77301","S":"LB77300","XS":"LB77299"}],
+["W--103","Navy/White",{"XL":"LB65366","L":"LB65365","M":"LB65364","S":"LB65363","XS":"LB65362"}],
+["W--103","Speckled Beige/Ivory Stripe",{"XL":"LB60586","L":"LB60585","M":"LB60584","S":"LB60583","XS":"LB60582"}],
+["W--103","Offwhite/Black Stripe",{"XL":"LB38841","L":"LB38838","M":"LB38835","S":"LB38832","XS":"LB38829"}],
+["W--103","Ivory",{"XL":"LB38840","L":"LB38837","M":"LB38834","S":"LB38831","XS":"LB38828"}],
+["W--103","Navy",{"XL":"LB38839","L":"LB38836","M":"LB38833","S":"LB38830","XS":"LB38827"}],
+["W-SWT-57","Deep Navy",{"XL":"LB65346","L":"LB65345","M":"LB65344","S":"LB65343","XS":"LB65342"}],
+["W-SWT-57","Black",{"XL":"LB46595","L":"LB46594","M":"LB46593","S":"LB46592","XS":"LB46591"}],
+["W-SWT-57","Charcoal",{"XL":"LB50252","L":"LB50250","M":"LB50248","S":"LB50246","XS":"LB50244"}],
+["W-SWT-57","Brown",{"XL":"LB50251","L":"LB50249","M":"LB50247","S":"LB50245","XS":"LB50243"}],
+["W-SWT-231","Black",{"3X":"LB147811","2X":"LB147810","1X":"LB147809"}],
+["W-SWT-231","Sky Blue",{"3X":"LB141215","2X":"LB141212","1X":"LB141209"}],
+["W-SWT-231","Ivory",{"3X":"LB141214","2X":"LB141211","1X":"LB141208"}],
+["W-SWT-231","Speckled Beige",{"3X":"LB141213","2X":"LB141210","1X":"LB141207"}],
+["W-SWT-134","Herb Green",{"3X":"LB140148","2X":"LB140147","1X":"LB140146"}],
+["W-SWT-134","Camel",{"3X":"LB112875","2X":"LB112873","1X":"LB112871"}],
+["W-SWT-134","Speckled Beige",{"3X":"LB112874","2X":"LB112872","1X":"LB112870"}],
+["W-SWT-134","Black",{"3X":"LB75902","2X":"LB75901","1X":"LB75900"}],
+["W-SWT-134","Ivory",{"3X":"LB82882","2X":"LB82880","1X":"LB82878"}],
+["W-SWT-255","Bubblegum/Fudge Mariner Stripe",{"3X":"LB151770","2X":"LB151767","1X":"LB151764"}],
+["W-SWT-255","Navy/White",{"3X":"LB151769","2X":"LB151766","1X":"LB151763"}],
+["W-SWT-255","Speckled Beige/Ivory",{"3X":"LB151768","2X":"LB151765","1X":"LB151762"}]
+];
+
+// SKU 查询引擎：键 = 款号|颜色|尺码（均规范化，颜色大小写/空格不敏感）
+let SKU_MAP = {};
+const normColor = s => String(s ?? '').trim().replace(/\s+/g, ' ').replace(/\s*\/\s*/g, '/').toLowerCase();
+const normSize = s => String(s ?? '').trim().toUpperCase();
+const skuKey = (style, color, size) => `${stdKey(style)}|${normColor(color)}|${normSize(size)}`;
+function buildSkuMap(rows) {
+  const m = {};
+  rows.forEach(([style, color, sizes]) => {
+    Object.keys(sizes).forEach(size => { m[skuKey(style, color, size)] = sizes[size]; });
+  });
+  return m;
+}
+function lookupSku(style, color, size) { return SKU_MAP[skuKey(style, color, size)] || ''; }
+// 解析上传的 SKU 表格（表头含 款号/Style、Color、Size、SKU 列），返回 {map, n}
+function parseSkuSheet(data) {
+  let hRow = -1;
+  const col = {style: -1, color: -1, size: -1, sku: -1, product: -1};
+  for (let r = 0; r < data.length && r < 10; r++) {
+    const row = data[r];
+    if (!row) continue;
+    row.forEach((v, c) => {
+      const cell = String(v ?? '').trim();
+      if (cell === '款号' || cell === 'Style' || cell === 'STYLE NUMBER') col.style = c;
+      if (cell === 'Color' || cell === 'COLOUR' || cell === '颜色') col.color = c;
+      if (cell === 'Size' || cell === 'SIZE' || cell === '尺码') col.size = c;
+      if (cell === 'SKU' || cell === 'SKU CODE') col.sku = c;
+      if (cell === 'Product' || cell === 'PRODUCT NAME') col.product = c;
+    });
+    if (col.style !== -1 && col.color !== -1 && col.size !== -1 && col.sku !== -1) { hRow = r; break; }
+  }
+  if (hRow === -1) return null;
+  const map = {};
+  const products = {};
+  let n = 0;
+  for (let r = hRow + 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const style = String(row[col.style] ?? '').trim();
+    const color = String(row[col.color] ?? '').trim();
+    const size = String(row[col.size] ?? '').trim();
+    const sku = String(row[col.sku] ?? '').trim();
+    if (style && color && size && sku) { map[skuKey(style, color, size)] = sku; n++; }
+    if (col.product !== -1 && style) {
+      const p = String(row[col.product] ?? '').trim();
+      if (p) products[stdKey(style)] = p;
+    }
+  }
+  return {map, products, n};
+}
+SKU_MAP = buildSkuMap(SKU_SEED);
+// 款号→Product 映射（来自SKU-QUINCE库）：订单表未出现Product/原料行时按款号自动匹配
+const SKU_SEED_PRODUCTS = {
+  "W--103": "Women's 100% Organic Cropped Cotton Polo Sweater",
+  "W-SWT-37": "Women's 100% Organic Cotton Oversized Boyfriend Cardigan",
+  "W-SWT-57": "Women's Featherweight Cashmere Ribbed Tank",
+  "W-SWT-59": "Women's 100% Organic Cotton Striped Crew Sweater",
+  "W-SWT-60": "Women's 100% Organic Cotton Fisherman Boxy Cropped Cardigan",
+  "W-SWT-64": "Women's 100% Organic Cotton Fisherman V-Neck Sweater",
+  "W-SWT-120": "Featherweight Cashmere Ribbed Mockneck Sweater",
+  "W-SWT-134": "Women's Plus Size 100% Organic Cotton Fisherman V-Neck Sweater",
+  "W-SWT-165": "Women's 100% Organic Cotton V-Neck Sweater Vest",
+  "W-SWT-166": "Women's 100% Organic Cotton Sweater Tee",
+  "W-SWT-195": "Women's 100% Organic Cotton Roll Neck Sweater",
+  "W-SWT-231": "Women's Plus Size 100% Organic Cotton Fisherman Boxy Cropped Cardigan",
+  "W-SWT-255": "Women's Plus Size 100% Organic Cotton Striped Crew Sweater"
+};
+let PRODUCT_BY_STYLE = { ...SKU_SEED_PRODUCTS };
+
+// 资料库持久化（localStorage，刷新/下次打开仍有效）：
+// SKU库分层：内嵌库 → 上传的SKU库 → Barcodes库 → 手动录入，后者优先
+const SKU_UPLOAD_KEY = 'packing_sku_upload_db';
+const SKU_BARCODES_KEY = 'packing_sku_barcodes_db';
+const SKU_USER_KEY = 'packing_sku_user_db';
+const PRODUCT_UPLOAD_KEY = 'packing_style_product_db';
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+function rebuildSkuMap() {
+  SKU_MAP = buildSkuMap(SKU_SEED);
+  [SKU_UPLOAD_KEY, SKU_BARCODES_KEY, SKU_USER_KEY].forEach(key => {
+    try { const s = lsGet(key); if (s) Object.assign(SKU_MAP, JSON.parse(s)); } catch (e) {}
+  });
+}
+function rebuildProductMap() {
+  PRODUCT_BY_STYLE = { ...SKU_SEED_PRODUCTS };
+  try { const s = lsGet(PRODUCT_UPLOAD_KEY); if (s) Object.assign(PRODUCT_BY_STYLE, JSON.parse(s)); } catch (e) {}
+}
+function loadStoredSku() { rebuildSkuMap(); rebuildProductMap(); }
+function lookupProduct(styleNo) { return PRODUCT_BY_STYLE[stdKey(styleNo)] || ''; }
+function mergeProductStore(products) {
+  let store = {};
+  try { store = JSON.parse(lsGet(PRODUCT_UPLOAD_KEY) || '{}'); } catch (e) {}
+  Object.assign(store, products);
+  lsSet(PRODUCT_UPLOAD_KEY, JSON.stringify(store));
+}
+// LOT库：PO+颜色+尺码 → {LOT号: 件数}。每个订单的LOT不同，LOT只存内存不落本地库
+let LOT_DB = {};
+function rebuildLotDb() { LOT_DB = {}; }
+function lookupLotInfo(po, color, size) {
+  const d = LOT_DB[`${String(po).trim()}|${normColor(color)}|${normSize(size)}`];
+  if (!d) return [];
+  return Object.keys(d).sort().map(lot => ({lot, qty: d[lot]}));
+}
+function mergeLotEntries(entries) {
+  entries.forEach(en => {
+    const key = `${en.po}|${normColor(en.color)}|${normSize(en.size)}`;
+    (LOT_DB[key] ?? (LOT_DB[key] = {}))[en.lot] = en.qty;
+  });
+}
+// 手动填写/修改 SKU 时自动保存：下次导入同款号+颜色+尺码可直接匹配
+function saveUserSku(style, color, size, sku) {
+  const key = skuKey(style, color, size);
+  SKU_MAP[key] = sku;
+  let map = {};
+  try { map = JSON.parse(lsGet(SKU_USER_KEY) || '{}'); } catch (e) {}
+  map[key] = sku;
+  lsSet(SKU_USER_KEY, JSON.stringify(map));
+  updateSkuDbInfo();
+}
+loadStoredSku();
+
+const ACCOUNT_HASH = 'daf89fd1020010403cc97e8eb3606753093965f10c2c0a6c0ddee9729888eecc';
+const PASSWORD_HASH = 'd1446dbc4463ad3f3368a77af0cbab158cffbd4a4a53a48571e0da10ea8214b2';
+
+/* ==================== 全局状态 ====================
+   颜色行结构：{name: 英文颜色CODE, nameZh: 中文颜色COLOR, sizes: { [size]: {qty, barcode, lot} }} */
+const STD_SIZES = ['XS', 'S', 'M', 'L', 'XL'];
+const sizeDefaults = {
+  weight:   {XS: 0.25, S: 0.28, M: 0.31, L: 0.34, XL: 0.37},
+  bigQty:   {XS: 28, S: 26, M: 24, L: 22, XL: 20},
+  smallQty: {XS: 14, S: 13, M: 12, L: 11, XL: 10}
+};
+const boxParamsConfig = [
+  {prefix: 'big',   title: '大箱', L: 60, W: 40, H: 40, selfW: 1.5},
+  {prefix: 'small', title: '小箱', L: 60, W: 40, H: 20, selfW: 1.1}
+];
+const state = {
+  sizes: [...STD_SIZES],
+  colors: [],
+  weight: {},
+  bigQty: {},
+  smallQty: {},
+  mixed: {enabled: false, sizesPerBox: 3}
+};
+let packData = [];
+let totalSummary = {};
+
+function ensureSizeMaps() {
+  state.sizes.forEach(sz => {
+    if (!(sz in state.weight))   state.weight[sz]   = sizeDefaults.weight[sz] ?? 0.3;
+    if (!(sz in state.bigQty))   state.bigQty[sz]   = sizeDefaults.bigQty[sz] ?? 20;
+    if (!(sz in state.smallQty)) state.smallQty[sz] = sizeDefaults.smallQty[sz] ?? 10;
+  });
+}
+function getStyleParam(inputStyle) {
+  if (!inputStyle) return null;
+  const target = stdKey(inputStyle);
+  for (const key in styleParamLib) {
+    if (target === stdKey(key)) return styleParamLib[key];
+  }
+  return null;
+}
+function applyStyleParams(styleNo) {
+  const param = getStyleParam(styleNo);
+  if (!param) return false;
+  state.sizes.forEach(sz => {
+    if (param.weight[sz] != null)      state.weight[sz]   = param.weight[sz];
+    if (param.bigBoxQty[sz] != null)   state.bigQty[sz]   = param.bigBoxQty[sz];
+    if (param.smallBoxQty[sz] != null) state.smallQty[sz] = param.smallBoxQty[sz];
+  });
+  if (param.sku) {
+    state.colors.forEach(c => {
+      state.sizes.forEach(sz => {
+        if (param.sku[sz] != null) {
+          const cell = c.sizes[sz] ?? (c.sizes[sz] = {qty: '', barcode: ''});
+          if (!cell.barcode) cell.barcode = param.sku[sz];
+        }
+      });
+    });
+  }
+  renderWeight();
+  renderBoxQty();
+  renderColors();
+  return true;
+}
+
+/* ==================== 渲染 ==================== */
+function initPage() {
+  try {
+    ensureSizeMaps();
+    renderSizeBar();
+    renderBoxParams();
+    renderBoxQty();
+    renderWeight();
+    renderColors();
+  } catch (e) {
+    console.error('页面渲染报错：', e);
+  }
+}
+function renderSizeBar() {
+  const wrap = $('sizeGroupWrap');
+  wrap.innerHTML = '';
+  state.sizes.forEach((sz, i) => {
+    const inp = document.createElement('input');
+    inp.className = 'size-top-input';
+    inp.value = sz;
+    inp.addEventListener('input', () => {
+      state.sizes[i] = inp.value.trim();
+      onSizesChanged();
+    });
+    wrap.appendChild(inp);
+  });
+}
+function onSizesChanged() {
+  ensureSizeMaps();
+  renderBoxQty();
+  renderWeight();
+  renderColors();
+}
+function renderBoxParams() {
+  boxParamsConfig.forEach(cfg => {
+    $(cfg.prefix + 'BoxParams').innerHTML = `
+      <div class="box-param-row"><span>长 L</span><input type="number" id="${cfg.prefix}L" value="${cfg.L}"></div>
+      <div class="box-param-row"><span>宽 W</span><input type="number" id="${cfg.prefix}W" value="${cfg.W}"></div>
+      <div class="box-param-row"><span>高 H</span><input type="number" id="${cfg.prefix}H" value="${cfg.H}"></div>
+      <div class="box-param-row"><span>空箱自重</span><input type="number" step="0.1" id="${cfg.prefix}SelfW" value="${cfg.selfW}"><span class="unit">KG</span></div>
+    `;
+  });
+}
+function renderBoxQty() {
+  [['big', 'bigQty'], ['small', 'smallQty']].forEach(([type, key]) => {
+    const wrap = $(type + 'BoxQtyWrap');
+    wrap.innerHTML = '';
+    state.sizes.forEach(sz => {
+      const row = document.createElement('div');
+      row.className = 'load-row';
+      const label = document.createElement('span');
+      label.textContent = `${sz}每箱件数`;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = `${type}-qty`;
+      inp.value = state[key][sz];
+      inp.addEventListener('input', () => { state[key][sz] = +inp.value || 0; });
+      row.append(label, inp);
+      wrap.appendChild(row);
+    });
+  });
+}
+function renderWeight() {
+  const wrap = $('weightWrap');
+  wrap.innerHTML = '';
+  state.sizes.forEach(sz => {
+    const div = document.createElement('div');
+    const label = document.createElement('span');
+    label.textContent = sz;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.step = '0.001';
+    inp.value = state.weight[sz];
+    inp.addEventListener('input', () => { state.weight[sz] = +inp.value || 0; });
+    div.append(label, inp);
+    wrap.appendChild(div);
+  });
+}
+function renderColors() {
+  const wrap = $('colorWrap');
+  wrap.innerHTML = '';
+  const btnBox = document.createElement('div');
+  btnBox.className = 'add-btn-box';
+  const btn = document.createElement('button');
+  btn.id = 'addColorBtn';
+  btn.className = 'btn btn-soft';
+  btn.textContent = '+ 添加新颜色行';
+  btn.addEventListener('click', () => { state.colors.push({name: '', nameZh: '', sizes: {}}); renderColors(); });
+  btnBox.appendChild(btn);
+  wrap.appendChild(btnBox);
+  state.colors.forEach(color => wrap.appendChild(buildColorBlock(color)));
+  updateBarcodePreviews();
+}
+function updateBarcodePreviews() {
+  const po = ($('poInput')?.value || '').trim();
+  const suffix = `-SGK001-${po}`;
+  document.querySelectorAll('.barcode-preview').forEach(sp => { sp.textContent = suffix; });
+}
+// 颜色块：CODE(英文颜色) + COLOR(中文颜色) 双输入框，导入订单时自动匹配填充
+function buildColorBlock(color) {
+  const block = document.createElement('div');
+  block.className = 'color-block';
+  const header = document.createElement('div');
+  header.className = 'color-header';
+  const fields = document.createElement('div');
+  fields.className = 'color-fields';
+  const f1 = document.createElement('div'); f1.className = 'field';
+  const l1 = document.createElement('label'); l1.textContent = 'CODE（英文颜色）';
+  const nameInp = document.createElement('input');
+  nameInp.className = 'color-code-input';
+  nameInp.placeholder = '如 Big Sur Green / 318#Crema';
+  nameInp.value = color.name;
+  nameInp.addEventListener('input', () => { color.name = nameInp.value; });
+  f1.append(l1, nameInp);
+  const f2 = document.createElement('div'); f2.className = 'field';
+  const l2 = document.createElement('label'); l2.textContent = 'COLOR（中文颜色）';
+  const zhInp = document.createElement('input');
+  zhInp.className = 'color-zh-input';
+  zhInp.placeholder = '如 大苏尔绿';
+  zhInp.value = color.nameZh || '';
+  zhInp.addEventListener('input', () => { color.nameZh = zhInp.value; });
+  f2.append(l2, zhInp);
+  fields.append(f1, f2);
+  const totalRow = document.createElement('div');
+  totalRow.className = 'color-total-row';
+  totalRow.append('本颜色合计总件数：');
+  const totalSpan = document.createElement('span');
+  totalSpan.className = 'totalCount';
+  totalRow.append(totalSpan, ' PCS');
+  header.append(fields, totalRow);
+  block.appendChild(header);
+  const refreshTotal = () => {
+    totalSpan.textContent = state.sizes.reduce((t, sz) => t + (+color.sizes[sz]?.qty || 0), 0);
+  };
+  state.sizes.forEach(sz => {
+    const cell = color.sizes[sz] ?? (color.sizes[sz] = {qty: '', barcode: '', lot: ''});
+    const row = document.createElement('div');
+    row.className = 'size-barcode-row';
+    const label = document.createElement('span');
+    label.className = 'sz-label';
+    label.textContent = sz;
+    const qtyInp = document.createElement('input');
+    qtyInp.type = 'number';
+    qtyInp.className = 'qty-input';
+    qtyInp.placeholder = '数量';
+    qtyInp.value = cell.qty;
+    qtyInp.addEventListener('input', () => { cell.qty = qtyInp.value; refreshTotal(); });
+    const barInp = document.createElement('input');
+    barInp.className = 'barcode-input';
+    barInp.placeholder = `${sz} SKU（如 LB137702）`;
+    barInp.value = cell.barcode;
+    barInp.addEventListener('input', () => { cell.barcode = barInp.value; });
+    barInp.addEventListener('change', () => {
+      const styleNo = ($('styleInput')?.value || '').trim();
+      const colorName = (color.name || '').trim();
+      const sku = barInp.value.trim();
+      if (styleNo && colorName && sku) saveUserSku(styleNo, colorName, sz, sku);
+    });
+    const barPrev = document.createElement('span');
+    barPrev.className = 'barcode-preview';
+    const lotInp = document.createElement('input');
+    lotInp.className = 'lot-input';
+    lotInp.placeholder = `${sz} LOT号`;
+    lotInp.value = cell.lot ?? '';
+    lotInp.addEventListener('input', () => { cell.lot = lotInp.value; });
+    row.append(label, qtyInp, barInp, barPrev, lotInp);
+    block.appendChild(row);
+  });
+  refreshTotal();
+  return block;
+}
+/* ==================== 取值与装箱算法 ==================== */
+// 条码固定格式：SKU-SGK001-PO。SKU 由用户填写/导入/资料库带入，PO 自动匹配
+function formatBarcode(sku, po) {
+  const s = (sku || '').trim();
+  if (!s) return '';
+  return `${s}-SGK001-${(po || '').trim()}`;
+}
+function getGoodsList(po) {
+  const list = [];
+  state.colors.forEach(c => {
+    const color = c.name.replace(/\s+/g, ' ').trim();
+    if (!color) return;
+    state.sizes.forEach(sz => {
+      const cell = c.sizes[sz];
+      const qty = +cell?.qty || 0;
+      if (qty > 0) list.push({color, size: sz, barcode: formatBarcode(cell?.barcode, po), pieces: qty, lot: (cell?.lot ?? '').trim()});
+    });
+  });
+  return list;
+}
+function getBoxConfig() {
+  const cfg = {};
+  boxParamsConfig.forEach(({prefix}) => {
+    const L = num(prefix + 'L'), W = num(prefix + 'W'), H = num(prefix + 'H');
+    cfg[prefix] = {
+      L, W, H,
+      selfWeight: num(prefix + 'SelfW', prefix === 'big' ? 1.5 : 1.1),
+      cbm: (L / 100) * (W / 100) * (H / 100)
+    };
+  });
+  return cfg;
+}
+function calcPackPlan(total, stdBig, smallMax) {
+  const fullCnt = Math.floor(total / stdBig);
+  const remain = total % stdBig;
+  let bigStd = fullCnt, bigExtra = 0, smallQty = 0, lastBigPlus1 = false;
+  if (fullCnt > 0) {
+    if (remain === 0) {}
+    else if (remain === 1) lastBigPlus1 = true;
+    else if (remain <= smallMax) smallQty = remain;
+    else if (remain === smallMax + 1) { lastBigPlus1 = true; smallQty = smallMax; }
+    else bigExtra = remain;
+  } else {
+    // 没有整箱大箱：≤小箱容量装小箱；比小箱多1件 → 小箱溢装1件；多2件及以上才开尾箱大箱
+    if (total <= smallMax + 1) smallQty = total;
+    else bigExtra = total;
+  }
+  return {bigStd, bigExtra, smallQty, lastBigPlus1};
+}
+// 混箱：把多个尺码的零头数量合装进箱子。不允许溢装。
+// 体积模型：尺码 s 单独装满一箱为 capOf(s) 件，则一箱混装各尺码数量需满足 Σ q_s/capOf(s) ≤ 1
+function packMixedLeftovers(leftovers, capOf, sizesPerBox) {
+  const boxes = [];
+  const util = b => b.items.reduce((s, it) => s + it.qty / capOf(it.size), 0);
+  let cur = {items: [], sizeSet: new Set()};
+  leftovers.forEach(rem => {
+    let left = rem.qty;
+    while (left > 0) {
+      const fit = Math.floor((1 - util(cur)) * capOf(rem.size) + 1e-6);
+      const sizeOk = cur.sizeSet.has(rem.size) || cur.sizeSet.size < sizesPerBox;
+      if (sizeOk && fit >= 1) {
+        const add = Math.min(left, fit);
+        const ex = cur.items.find(x => x.size === rem.size);
+        if (ex) ex.qty += add;
+        else { cur.items.push({size: rem.size, qty: add, barcode: rem.barcode}); cur.sizeSet.add(rem.size); }
+        left -= add;
+      } else {
+        boxes.push(cur);
+        cur = {items: [], sizeSet: new Set()};
+      }
+    }
+  });
+  if (cur.items.length) boxes.push(cur);
+  return boxes;
+}
+
+/* ==================== 生成装箱清单 ==================== */
+function generatePacking() {
+  try {
+    const head = {
+      po: $('poInput').value, lot: $('lotInput').value,
+      style: $('styleInput').value, product: $('prodInput').value
+    };
+    const boxCfg = getBoxConfig();
+    const goods = getGoodsList(head.po);
+    packData = [];
+    if (goods.length === 0) {
+      alert('未读取到有效货品！检查颜色名称不要带空格、尺码数量大于0');
+      $('resultArea').innerHTML = '';
+      $('exportBtn').style.display = 'none';
+      return;
+    }
+
+    const sums = {pcs: 0, nw: 0, gw: 0, cbm: 0, big: 0, small: 0};
+    let cartonNo = 1;
+    const bodyRows = [];
+
+    // 统一的"输出一行箱明细"。混箱需要按尺码合计净重，nw 由调用方传入；lot 缺省取顶部 LOT#
+    // mixedItems = 混箱内各尺码件数明细（通用装箱单按尺码列展示用）
+    const emit = (boxType, {qty, ctns, pcsPerCtn, color, size, barcode, nw, lot, mixedItems}, mixed = false) => {
+      const bc = boxCfg[boxType];
+      const gw = nw + ctns * bc.selfWeight;
+      const cbm = ctns * bc.cbm;
+      const start = cartonNo;
+      cartonNo += ctns;
+      const no = ctns > 1 ? `${start}-${start + ctns - 1}` : String(start);
+      sums.pcs += qty; sums.nw += nw; sums.gw += gw; sums.cbm += cbm;
+      sums[boxType] += ctns;
+      packData.push({
+        cartonNo: no, po: head.po, lot: lot ?? head.lot, style: head.style, product: head.product,
+        barcode, color, size, qty, ctns, pcsPerCtn,
+        L: bc.L, W: bc.W, H: bc.H,
+        cbm: cbm.toFixed(4), nw: nw.toFixed(3), gw: gw.toFixed(3),
+        boxType: boxType, // big / small（通用装箱单区分大箱/小箱）
+        _unitW: qty > 0 ? nw / qty : 0, _selfW: bc.selfWeight, // 供清单内改数后重算
+        _mixed: mixed, // 混箱零头行标记（浅紫色填充用）
+        _mixedItems: mixedItems || null // 混箱各尺码件数明细
+      });
+      bodyRows.push({cells: [no, head.po, lot ?? head.lot, head.style, barcode, head.product,
+        color, size, qty, bc.L, bc.W, bc.H, cbm.toFixed(4), nw.toFixed(3), gw.toFixed(3)], rowspan: false, partial: false});
+    };
+
+    const capBig = sz => state.bigQty[sz] ?? 20;
+
+    // ===== LOT 拆分装箱 =====
+    const allocLotQty = (lotInfo, totalPieces) => {
+      let left = totalPieces;
+      const arr = lotInfo.map(l => { const take = Math.min(left, l.qty); left -= take; return {lot: l.lot, qty: take}; });
+      if (left > 0 && arr.length) arr[arr.length - 1].qty += left; // 订单数多于LOT库记录时，多出部分归最后一个LOT
+      return arr.filter(a => a.qty > 0);
+    };
+    const emitSharedCarton = (item, segs) => {
+      const bc = boxCfg.big;
+      const totalQty = segs.reduce((s, x) => s + x.qty, 0);
+      const perW = state.weight[item.size] || 0;
+      const nw = totalQty * perW;
+      const gw = nw + bc.selfWeight;
+      const cbm = bc.cbm;
+      const no = String(cartonNo);
+      const grp = 'g' + cartonNo;
+      segs.forEach((sg, i) => {
+        packData.push({
+          cartonNo: no, po: head.po, lot: sg.lot, style: head.style, product: head.product,
+          barcode: item.barcode, color: item.color, size: item.size,
+          qty: sg.qty, ctns: 1, pcsPerCtn: totalQty,
+          L: bc.L, W: bc.W, H: bc.H,
+          cbm: i === 0 ? cbm.toFixed(4) : '', nw: i === 0 ? nw.toFixed(3) : '', gw: i === 0 ? gw.toFixed(3) : '',
+          _unitW: perW, _selfW: bc.selfWeight, _labelQty: totalQty,
+          _group: grp, _secondary: i > 0
+        });
+        bodyRows.push(i === 0
+          ? {cells: [no, head.po, sg.lot, head.style, item.barcode, head.product, item.color, item.size, sg.qty,
+              bc.L, bc.W, bc.H, cbm.toFixed(4), nw.toFixed(3), gw.toFixed(3)], rowspan: true, partial: false}
+          : {cells: [no, head.po, sg.lot, head.style, item.barcode, head.product, item.color, item.size, sg.qty],
+              rowspan: false, partial: true});
+      });
+      cartonNo += 1;
+      sums.pcs += totalQty; sums.nw += nw; sums.gw += gw; sums.cbm += cbm;
+      sums.big += 1;
+    };
+    const packMultiLot = (item, lotInfo) => {
+      const cap = capBig(item.size);
+      const smallMax = state.smallQty[item.size] ?? 10;
+      const perW = state.weight[item.size] || 0;
+      const lots = allocLotQty(lotInfo, item.pieces);
+      let open = null; // 开放尾箱 {segments:[{lot,qty}]}
+      const closeOpen = () => {
+        if (!open) return;
+        const segs = open.segments.filter(s => s.qty > 0);
+        open = null;
+        if (segs.length <= 1) {
+          if (segs.length === 1) {
+            // BUG修复：尾箱件数装得下小箱即记小箱（不再恒记大箱）
+            emit(segs[0].qty <= smallMax ? 'small' : 'big',
+              {qty: segs[0].qty, ctns: 1, pcsPerCtn: segs[0].qty, color: item.color,
+              size: item.size, barcode: item.barcode, nw: segs[0].qty * perW, lot: segs[0].lot});
+          }
+        } else {
+          emitSharedCarton(item, segs);
+        }
+      };
+      lots.forEach(L => {
+        let q = L.qty;
+        // 先填开放尾箱（至 cap+1 件）
+        if (open && q > 0) {
+          const cur = open.segments.reduce((s, x) => s + x.qty, 0);
+          const take = Math.min(cap + 1 - cur, q);
+          if (take > 0) { open.segments.push({lot: L.lot, qty: take}); q -= take; }
+          const now = open.segments.reduce((s, x) => s + x.qty, 0);
+          if (now >= cap + 1) closeOpen();
+        }
+        if (q <= 0) return;
+        // 余量按标准规则：整箱 + 末箱+1/小箱/尾箱
+        const plan = calcPackPlan(q, cap, smallMax);
+        const line = (boxType, qty, ctns, pcs) =>
+          emit(boxType, {qty, ctns, pcsPerCtn: pcs, color: item.color, size: item.size, barcode: item.barcode, nw: qty * perW, lot: L.lot});
+        if (plan.bigStd > 0) {
+          if (plan.lastBigPlus1) {
+            if (plan.bigStd - 1 > 0) line('big', (plan.bigStd - 1) * cap, plan.bigStd - 1, cap);
+            line('big', cap + 1, 1, cap + 1); // 溢装箱已满，直接定箱
+          } else {
+            line('big', plan.bigStd * cap, plan.bigStd, cap);
+          }
+        }
+        if (plan.smallQty > 0) line('small', plan.smallQty, 1, plan.smallQty);
+        if (plan.bigExtra > 0) open = {segments: [{lot: L.lot, qty: plan.bigExtra}]};
+      });
+      closeOpen();
+    };
+
+    if (!state.mixed.enabled) {
+      // 原有单尺码装箱规则（尾箱 / 末箱+1 / 小箱兜底）
+      goods.forEach(item => {
+        // Lot# 动态匹配：从 Barcodes 库按 PO+颜色+尺码 查 LOT
+        const lotInfo = lookupLotInfo(head.po, item.color, item.size);
+        if (lotInfo.length >= 2) { packMultiLot(item, lotInfo); return; } // 同色多LOT：拆分+合并行
+        const singleLot = item.lot || (lotInfo.length === 1 ? lotInfo[0].lot : head.lot);
+        const {pieces, size} = item;
+        const stdBig = capBig(size);
+        const smallMax = state.smallQty[size] ?? 10;
+        const plan = calcPackPlan(pieces, stdBig, smallMax);
+        const perW = state.weight[size] || 0;
+        const row = (boxType, qty, ctns, pcs) =>
+          emit(boxType, {qty, ctns, pcsPerCtn: pcs, color: item.color, size: item.size, barcode: item.barcode, nw: qty * perW, lot: singleLot});
+        if (plan.bigStd > 0) {
+          if (plan.lastBigPlus1) {
+            if (plan.bigStd - 1 > 0) row('big', (plan.bigStd - 1) * stdBig, plan.bigStd - 1, stdBig);
+            row('big', stdBig + 1, 1, stdBig + 1);
+          } else {
+            row('big', plan.bigStd * stdBig, plan.bigStd, stdBig);
+          }
+        }
+        if (plan.bigExtra > 0) row('big', plan.bigExtra, 1, plan.bigExtra);
+        if (plan.smallQty > 0) row('small', plan.smallQty, 1, plan.smallQty);
+      });
+    } else {
+      // 混箱模式：整箱优先；同一颜色各尺码的零头合并成混箱（每箱≤N种尺码，不允许溢装）
+      const byColor = new Map();
+      goods.forEach(g => { if (!byColor.has(g.color)) byColor.set(g.color, []); byColor.get(g.color).push(g); });
+      byColor.forEach(items => {
+        const color = items[0].color;
+        const leftovers = [];
+        items.forEach(g => {
+          const cap = capBig(g.size);
+          const fullCnt = Math.floor(g.pieces / cap);
+          const rem = g.pieces % cap;
+          const gLotInfo = lookupLotInfo(head.po, color, g.size);
+          const gLot = g.lot || (gLotInfo.length === 1 ? gLotInfo[0].lot : head.lot);
+          if (fullCnt > 0) emit('big', {qty: fullCnt * cap, ctns: fullCnt, pcsPerCtn: cap,
+            color, size: g.size, barcode: g.barcode, nw: fullCnt * cap * (state.weight[g.size] || 0), lot: gLot});
+          if (rem > 0) leftovers.push({size: g.size, qty: rem, barcode: g.barcode});
+        });
+        packMixedLeftovers(leftovers, capBig, state.mixed.sizesPerBox).forEach(bx => {
+          const sizeLabel = bx.items.map(i => `${i.size}×${i.qty}`).join('/');
+          const barcodeLabel = bx.items.map(i => i.barcode).filter(Boolean).join(' / ');
+          const qty = bx.items.reduce((s, i) => s + i.qty, 0);
+          const nw = bx.items.reduce((s, i) => s + i.qty * (state.weight[i.size] || 0), 0);
+          // BUG修复：混箱同样参与小箱判定——按小箱容量做体积折算，装得下小箱即记小箱
+          // （例如整箱零头只有6件，远低于小箱容量，应输出小箱而不是大箱）
+          const utilSmall = bx.items.reduce((s, i) => s + i.qty / (state.smallQty[i.size] || 10), 0);
+          const boxType = utilSmall <= 1.000001 ? 'small' : 'big';
+          emit(boxType, {qty, ctns: 1, pcsPerCtn: qty, color, size: sizeLabel, barcode: barcodeLabel, nw,
+            mixedItems: bx.items.map(i => ({size: i.size, qty: i.qty, barcode: i.barcode}))}, true);
+        });
+      });
+    }
+
+    const headers = ['Carton No.', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name',
+      'Color', 'Size', '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height',
+      'CBM', 'NW (in Kgs)', 'GW (in Kgs)'];
+    const totalCartons = sums.big + sums.small;
+    totalSummary = {
+      totalPCS: sums.pcs, totalNW: sums.nw, totalGW: sums.gw, totalCBM: sums.cbm,
+      bigBoxTotal: sums.big, smallBoxTotal: sums.small, totalCarton: totalCartons
+    };
+    // 数据行：件数与长/宽/高可编辑，CBM/NW/GW 为计算列，修改后自动重算；
+    // 同箱双LOT的合并行：J-O（长宽高/CBM/NW/GW）用 rowspan 跨行
+    const EDIT_COLS = {8: 'qty', 9: 'L', 10: 'W', 11: 'H'};
+    const CALC_COLS = {12: 'cbm', 13: 'nw', 14: 'gw'};
+    const rowsHtml = bodyRows.map((entry, i) => {
+      const r = entry.cells;
+      const spanAttr = (c) => (entry.rowspan && c >= 9) ? ' rowspan="2"' : '';
+      return `<tr>${r.map((v, c) => {
+        if (EDIT_COLS[c] != null) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="${EDIT_COLS[c]}" value="${esc(v)}"></td>`;
+        if (CALC_COLS[c] != null) return `<td${spanAttr(c)} class="calc-cell" data-r="${i}" data-f="${CALC_COLS[c]}">${esc(v)}</td>`;
+        return `<td${spanAttr(c)}>${esc(v)}</td>`;
+      }).join('')}</tr>`;
+    }).join('');
+    $('resultArea').innerHTML =
+      `<div class="table-scroll"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+      + rowsHtml
+      + `<tr class="total-tr">
+          <td colspan="8">TOTAL 总计</td>
+          <td id="totPcs">${sums.pcs} PCS</td>
+          <td colspan="3" id="totBox">总箱：${sums.big}大箱+${sums.small}小箱 = ${totalCartons} CTNS</td>
+          <td id="totCbm">${sums.cbm.toFixed(4)}</td><td id="totNw">${sums.nw.toFixed(3)}</td><td id="totGw">${sums.gw.toFixed(3)}</td>
+        </tr></tbody></table></div>
+      <div class="total-summary">
+        <strong>整单汇总：</strong><br>
+        大箱：<span id="sumBig">${sums.big}</span> CTNS &nbsp;&nbsp; 小箱：<span id="sumSmall">${sums.small}</span> CTNS &nbsp;&nbsp; 总箱数：<span id="sumCartons">${totalCartons}</span> CTNS<br>
+        总件数：<span id="sumPcs">${sums.pcs}</span> PCS<br>
+        总净重NW：<span id="sumNw">${sums.nw.toFixed(3)}</span> KG<br>
+        总毛重GW：<span id="sumGw">${sums.gw.toFixed(3)}</span> KG<br>
+        总体积CBM：<span id="sumCbm">${sums.cbm.toFixed(4)}</span> CBM
+      </div>`;
+    $('resultArea').querySelectorAll('.row-edit').forEach(inp => {
+      inp.addEventListener('input', () => onRowEdit(inp));
+    });
+    updateRowClasses();
+    $('destBar').style.display = 'flex';
+    // 按钮开放开关：需要隐藏某个按钮时，把对应行改为 'none'；以后重新开放改回 'inline-block' 即可，
+    // 功能代码（函数与事件绑定）始终完整保留，无需重写。
+    $('exportBtn').style.display = 'inline-block';
+    $('labelBtn').style.display = 'inline-block';
+    $('genPackBtn').style.display = 'inline-block'; // 通用装箱单：已开启
+  } catch (err) {
+    alert('生成失败：' + err.message + '\n刷新页面重新登录尝试');
+    console.error('生成清单异常', err);
+  }
+}
+
+// 在生成的清单里直接改某箱的件数/长/宽/高（如溢装：调高箱高、增加件数），
+// 自动重算该箱 CBM/NW/GW 与整单合计；导出 Excel 使用修改后的数值。
+// 纸箱自重随箱高切换：高度达到大箱高度 → 按大箱自重，否则按小箱自重。
+// 注意：多整箱行（ctns>1）的 CBM/GW 是整组合计，需乘箱数。
+function onRowEdit(inp) {
+  const idx = +inp.dataset.r;
+  const r = packData[idx];
+  if (!r) return;
+  const v = parseFloat(inp.value);
+  r[inp.dataset.f] = isNaN(v) ? 0 : v;
+  const bigH = num('bigH', 40);
+  if (r._group) {
+    // 同箱多LOT合并行：CBM/NW/GW 只记在主行，按整箱总件数重算
+    const grp = packData.filter(p => p._group === r._group);
+    grp.forEach(p => { p._selfW = p.H >= bigH ? num('bigSelfW', 1.5) : num('smallSelfW', 1.1); });
+    const prim = grp.find(p => !p._secondary);
+    const totQty = grp.reduce((s, p) => s + (p.qty || 0), 0);
+    const ctns = prim.ctns || 1;
+    prim.cbm = (ctns * prim.L * prim.W * prim.H / 1000000).toFixed(4);
+    prim.nw = (totQty * (prim._unitW || 0)).toFixed(3);
+    prim.gw = (+prim.nw + ctns * prim._selfW).toFixed(3);
+    grp.forEach(p => { if (p._labelQty != null) p._labelQty = totQty; });
+    const primIdx = packData.indexOf(prim);
+    document.querySelectorAll(`.calc-cell[data-r="${primIdx}"]`).forEach(td => {
+      td.textContent = prim[td.dataset.f];
+    });
+  } else {
+    r._selfW = r.H >= bigH ? num('bigSelfW', 1.5) : num('smallSelfW', 1.1);
+    const ctns = r.ctns || 1;
+    r.cbm = (ctns * r.L * r.W * r.H / 1000000).toFixed(4);
+    r.nw = (r.qty * (r._unitW || 0)).toFixed(3);
+    r.gw = (+r.nw + ctns * r._selfW).toFixed(3);
+    document.querySelectorAll(`.calc-cell[data-r="${idx}"]`).forEach(td => {
+      td.textContent = r[td.dataset.f];
+    });
+  }
+  recalcTotals();
+  updateRowClasses();
+}
+
+// 行标色（仅页面显示）：混箱零头行 → 浅紫；其余行高度低于大箱高度（即小箱）→ 黄色
+function updateRowClasses() {
+  const bigH = num('bigH', 40);
+  const trs = document.querySelectorAll('#resultArea tbody tr:not(.total-tr)');
+  trs.forEach((tr, i) => {
+    const r = packData[i];
+    if (!r) return;
+    tr.classList.remove('row-small', 'row-mixed');
+    if (r._mixed) tr.classList.add('row-mixed');
+    else if (r.H < bigH) tr.classList.add('row-small');
+  });
+}
+
+// 按当前每行箱高重新归类大/小箱（高度达到大箱高度记为大箱），重算全部合计
+function recalcTotals() {
+  let pcs = 0, nw = 0, gw = 0, cbm = 0, big = 0, small = 0;
+  const bigH = num('bigH', 40);
+  packData.forEach(r => {
+    if (r._secondary) { pcs += r.qty; return; } // 同箱合并从行：只计件数，不重复计箱数/重量
+    pcs += r.qty; nw += +r.nw; gw += +r.gw; cbm += +r.cbm;
+    const c = r.ctns || 1;
+    if (r.H >= bigH) big += c; else small += c;
+  });
+  totalSummary.totalPCS = pcs;
+  totalSummary.totalNW = nw;
+  totalSummary.totalGW = gw;
+  totalSummary.totalCBM = cbm;
+  totalSummary.bigBoxTotal = big;
+  totalSummary.smallBoxTotal = small;
+  totalSummary.totalCarton = big + small;
+  if ($('totPcs')) $('totPcs').textContent = pcs + ' PCS';
+  if ($('totBox')) $('totBox').textContent = `总箱：${big}大箱+${small}小箱 = ${big + small} CTNS`;
+  if ($('totCbm')) $('totCbm').textContent = cbm.toFixed(4);
+  if ($('totNw')) $('totNw').textContent = nw.toFixed(3);
+  if ($('totGw')) $('totGw').textContent = gw.toFixed(3);
+  if ($('sumBig')) $('sumBig').textContent = big;
+  if ($('sumSmall')) $('sumSmall').textContent = small;
+  if ($('sumCartons')) $('sumCartons').textContent = big + small;
+  if ($('sumPcs')) $('sumPcs').textContent = pcs;
+  if ($('sumNw')) $('sumNw').textContent = nw.toFixed(3);
+  if ($('sumGw')) $('sumGw').textContent = gw.toFixed(3);
+  if ($('sumCbm')) $('sumCbm').textContent = cbm.toFixed(4);
+}
+
+/* ==================== 收货目的地 ==================== */
+function getDestAddress() {
+  return ($('destInput')?.value || '').trim() || 'United States of America';
+}
+function getDestCode() {
+  const k = getDestAddress().toLowerCase();
+  if (k === 'us' || k === 'usa' || k.includes('united states')) return 'US';
+  if (k === 'ca' || k.includes('canada')) return 'CA';
+  if (k === 'uk' || k === 'gb' || k.includes('united kingdom') || k.includes('england')) return 'UK';
+  if (k === 'au' || k.includes('australia')) return 'AU';
+  if (k === 'nz' || k.includes('new zealand')) return 'NZ';
+  if (k === 'de' || k.includes('germany')) return 'DE';
+  if (k === 'fr' || k.includes('france')) return 'FR';
+  if (k === 'mx' || k.includes('mexico')) return 'MX';
+  if (k === 'jp' || k.includes('japan')) return 'JP';
+  return getDestAddress().toUpperCase();
+}
+
+/* ==================== 导出Excel (ExcelJS) ==================== */
+async function exportExcel() {
+  if (typeof ExcelJS === 'undefined') {
+    alert('网络异常，Excel导出功能暂时无法使用，联网后刷新页面');
+    return;
+  }
+  if (packData.length === 0) {
+    alert('请先生成装箱清单！');
+    return;
+  }
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('sheet1');
+  Object.assign(sheet.pageSetup, {
+    paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 1,
+    margins: {left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3}
+  });
+  const COL_COUNT = 17;
+  sheet.columns = [22.43, 31.96, 15.86, 10.86, 23.86, 50.57, 34.71, 8.57, 9.86, 12.86, 12, 12.43, 7.86, 9.29, 11.43, 12, 12]
+    .map(width => ({width}));
+  sheet.getColumn(16).hidden = true;
+  sheet.getColumn(17).hidden = true;
+
+  const defaultFont = {name: 'Arial', size: 10};
+  const boldFont = {name: 'Arial', size: 10, bold: true};
+  const thin = {style: 'thin', color: {argb: 'FF000000'}};
+  const thinBorder = {top: thin, left: thin, bottom: thin, right: thin};
+  const bottomLeftAlign = {horizontal: 'left', vertical: 'bottom'};
+  const styleCell = (cell, font = defaultFont) => {
+    cell.border = thinBorder;
+    cell.font = font;
+    cell.alignment = bottomLeftAlign;
+  };
+  const styleRow = rowIdx => {
+    for (let c = 1; c <= COL_COUNT; c++) styleCell(sheet.getRow(rowIdx).getCell(c));
+  };
+
+  for (let i = 1; i <= 9 + packData.length + 3; i++) sheet.getRow(i).height = 20;
+
+  // ===== 第1-9行：A-F列按模板固定格式（日期/地址/电话留空） =====
+  const leftInfo = [
+    ['Vendor Name', 'Sungin'],
+    ['Vendor Address', ''],
+    ['Vendor Phone (Optional)', ''],
+    ['Vendor Fax (Optional)', ''],
+    ['', ''],
+    ['Date', ''],
+    ['Ship To Address', getDestAddress()]
+  ];
+  const rightInfo = [
+    {label: 'Summary', bold: true},
+    {label: 'Total Units', value: totalSummary.totalPCS + ' PCS'},
+    {label: 'Total Gross Weight', value: totalSummary.totalGW.toFixed(3) + ' KG'},
+    {label: 'Total Net Weight', value: totalSummary.totalNW.toFixed(3) + ' KG'},
+    {label: 'Total CBM', value: totalSummary.totalCBM.toFixed(4)}
+  ];
+  leftInfo.forEach(([label, value], i) => {
+    const r = i + 1;
+    styleRow(r);
+    if (label) {
+      sheet.getCell(r, 1).value = label;
+      sheet.getCell(r, 1).font = boldFont;
+    }
+    if (value) sheet.getCell(r, 2).value = value;
+    const info = rightInfo[i];
+    if (info) {
+      sheet.getCell(r, 6).value = info.label;
+      if (info.bold) sheet.getCell(r, 6).font = boldFont;
+      if (info.value != null) sheet.getCell(r, 7).value = info.value;
+    }
+  });
+  sheet.getCell(6, 3).value = 'Invoice Number';
+  sheet.getCell(6, 3).font = boldFont;
+
+  // ===== 第8行空行 / 第9行表头 =====
+  styleRow(8);
+  const headers = ['Carton #', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name', 'Color', 'Size',
+    '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height', 'CBM', 'NW (in Kgs)', 'GW (in Kgs)', 'CTNS', 'PCS/CTN'];
+  headers.forEach((h, i) => {
+    const cell = sheet.getRow(9).getCell(i + 1);
+    cell.value = h;
+    styleCell(cell);
+  });
+
+  // ===== 数据行 =====
+  packData.forEach((row, idx) => {
+    const r = 10 + idx;
+    // PCS/CTN 按当前件数折算，跟随手动修改
+    const pcsPerCtn = row.ctns > 1 ? Math.round((row.qty / row.ctns) * 1000) / 1000 : row.qty;
+    [row.cartonNo, row.po, row.lot, row.style, row.barcode, row.product, row.color, row.size,
+      row.qty, row.L, row.W, row.H, row.cbm, row.nw, row.gw, row.ctns, pcsPerCtn]
+      .forEach((v, i) => {
+        const cell = sheet.getRow(r).getCell(i + 1);
+        cell.value = v;
+        styleCell(cell);
+      });
+  });
+  // ===== 同箱多LOT合并行：J-O（长/宽/高/CBM/NW/GW）跨行合并 =====
+  packData.forEach((row, idx) => {
+    if (row._group && !row._secondary) {
+      const secIdx = packData.findIndex((p, j) => j > idx && p._group === row._group);
+      if (secIdx > idx) {
+        const r1 = 10 + idx, r2 = 10 + secIdx;
+        for (let c = 10; c <= 15; c++) {
+          sheet.getCell(r2, c).value = null;
+          sheet.mergeCells(r1, c, r2, c);
+        }
+      }
+    }
+  });
+
+  // ===== 空行 + 隐藏合计行 =====
+  const emptyRow = 10 + packData.length;
+  const totalRow = emptyRow + 1;
+  styleRow(emptyRow);
+  styleRow(totalRow);
+  sheet.getRow(totalRow).hidden = true;
+  sheet.getCell(totalRow, 9).value = totalSummary.totalPCS;
+  sheet.getCell(totalRow, 13).value = totalSummary.totalCBM;
+
+  // ===== 导出 =====
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const po = $('poInput').value;
+  a.download = po ? `PO${po} packing_list.xlsx` : 'packing_list.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ==================== 导出箱贴 (ExcelJS) ====================
+   每箱一张标签，一行 2 张，排版对齐客户箱贴模板，A4 自适应打印。 */
+function expandCartons() {
+  const cartons = [];
+  packData.forEach(row => {
+    if (row._secondary) return; // 同箱多LOT合并行：只按主行出一张箱贴
+    let nums = [];
+    const s = String(row.cartonNo);
+    if (s.includes('-')) {
+      const [a, b] = s.split('-').map(Number);
+      for (let n = a; n <= b; n++) nums.push(n);
+    } else {
+      nums = [parseInt(s, 10) || 0];
+    }
+    nums.forEach(no => {
+      const ctns = row.ctns || 1;
+      // 用当前行数据折算每箱（件数/净重被手动改过也能同步到箱贴；合并箱用整箱总件数）
+      const qtyAll = row._labelQty != null ? row._labelQty : row.qty;
+      const qty = Math.round((qtyAll / ctns) * 1000) / 1000;
+      const nw = +((row._unitW || 0) * qty).toFixed(3);
+      const gw = +(nw + row._selfW).toFixed(3);
+      const sku = String(row.barcode || '').split(' / ')[0].split('-')[0];
+      cartons.push({no, color: row.color, size: row.size, qty, nw, gw, sku,
+        po: row.po, style: row.style, product: row.product});
+    });
+  });
+  return cartons;
+}
+
+async function exportLabels() {
+  if (typeof ExcelJS === 'undefined') { alert('网络异常，Excel导出功能暂时无法使用，联网后刷新页面'); return; }
+  if (packData.length === 0) { alert('请先生成装箱清单！'); return; }
+  const cartons = expandCartons();
+  const totalCartons = totalSummary.totalCarton || cartons.length;
+  const DEST = getDestCode();
+  const VENDOR = 'SUNGIN';
+
+  const wb = new ExcelJS.Workbook();
+  // 纵向A4，每页排 2块标签（每块=1箱左右2张）= 4张贴纸
+  const sheet = wb.addWorksheet('箱贴', {pageSetup: {paperSize: 9, orientation: 'portrait',
+    scale: undefined, fitToWidth: undefined, fitToHeight: undefined,
+    margins: {left: 0.354, right: 0.315, top: 0.354, bottom: 0.315, header: 0.197, footer: 0.078}}});
+  try { sheet.properties.defaultRowHeight = 13.5; } catch (e) {}
+
+  // 列宽（用户调整稿）：标签列 A/I=17.1；值区末列 F/N=5.008；间隔列 G=3.825、H=3.2
+  const widths = [17.1, 6.458, 5.717, 6.458, 5, 5.008, 3.825, 3.2, 17.1, 6.458, 5.717, 6.458, 5, 5.008];
+  widths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+
+  const MED = {style: 'medium', color: {argb: 'FF000000'}};
+  const AB = 'Arial Black'; // 横幅/VENDOR/KG/DEST
+  const AR = 'Arial';       // 字段名标签/STYLE/SIZE/COLOUR/PRODUCT
+  const HT = '黑体';        // PO/SKU/QTY/件数数值（同样本）
+  const center = {horizontal: 'center', vertical: 'middle', wrapText: true};
+  const leftMid = {horizontal: 'left', vertical: 'middle', wrapText: true};
+  const rightMid = {horizontal: 'right', vertical: 'middle', wrapText: true};
+  const leftNowrap = {horizontal: 'left', vertical: 'middle', wrapText: false}; // 不换行
+
+  function drawLabel(k, r, c) {
+    const d = cartons[k];
+    const vc = c + 1, last = c + 5;
+    const put = (rr, cc, val, sz, bold, align, name) => {
+      const cell = sheet.getCell(rr, cc);
+      if (val !== undefined && val !== null) cell.value = val;
+      cell.font = {name: name || AB, size: sz, bold};
+      if (align) cell.alignment = align;
+      return cell;
+    };
+    // 矩形外框：区内在每个单元格都设四边边框（ExcelJS 合并时复制边框，合并后内部线自动隐藏、只留外框）
+    const boxAll = (r1, r2, c1, c2) => {
+      for (let rr = r1; rr <= r2; rr++) for (let cc = c1; cc <= c2; cc++) {
+        sheet.getCell(rr, cc).border = {top: MED, bottom: MED, left: MED, right: MED};
+      }
+    };
+    // 不合并的值行（SIZE/QTY/CARTON/G.W/N.W）：标签列四边框；值区只上下边+末列右边，内部无竖线
+    const valRow = (rr) => {
+      boxAll(rr, rr, c, c);
+      for (let cc = vc; cc <= last; cc++) {
+        sheet.getCell(rr, cc).border = {top: MED, bottom: MED, left: null, right: (cc === last) ? MED : null};
+      }
+    };
+    const fullBox = (r1, r2) => { boxAll(r1, r2, c, last); sheet.mergeCells(r1, c, r2, last); };
+    const fieldRow = (rr, lab, val, sz, bold, fn, align) => { // 字段行：标签框 + 值区合并
+      boxAll(rr, rr, c, c);
+      boxAll(rr, rr, vc, last);
+      put(rr, c, lab, 11, true, leftMid, AR);
+      put(rr, vc, val, sz, bold, align || leftMid, fn);
+      sheet.mergeCells(rr, vc, rr, last);
+    };
+
+    // ASN/Booking NO 横幅 + 空白填写区（同样本：各2行整宽合并）
+    put(r, c, 'ASN/Booking NO', 19, true, center);
+    fullBox(r, r + 1);
+    fullBox(r + 2, r + 3);
+    // 各字段行
+    fieldRow(r + 4, 'VENDOR NAME', VENDOR, 12, false, AB);
+    // PRODUCT NAME（标签与值各2行合并）
+    boxAll(r + 5, r + 6, c, c);
+    boxAll(r + 5, r + 6, vc, last);
+    put(r + 5, c, 'PRODUCT NAME', 11, true, leftMid, AR);
+    put(r + 5, vc, d.product, 10, true, leftMid, AR);
+    sheet.mergeCells(r + 5, c, r + 6, c);
+    sheet.mergeCells(r + 5, vc, r + 6, last);
+    fieldRow(r + 7, 'PO NO', d.po, 14, true, HT);
+    fieldRow(r + 8, 'STYLE NUMBER', d.style, 14, true, AR);
+    fieldRow(r + 9, 'SKU CODE', d.sku, 14, true, HT);
+    // COLOUR：字符串过长时自动缩小字号，保证单行不换行不截断
+    const colorStr = String(d.color);
+    const fitLen = 24; // 12号字在值区(B..F)一行约可容纳字符数
+    const colorFont = colorStr.length > fitLen ? Math.max(7, Math.floor(12 * fitLen / colorStr.length)) : 12;
+    fieldRow(r + 10, 'COLOUR', colorStr, colorFont, true, AR, leftNowrap);
+    // SIZE / QTY（值在B格右对齐，内部无竖线）
+    valRow(r + 11);
+    put(r + 11, c, 'SIZE', 11, true, leftMid, AR);
+    put(r + 11, vc, d.size, 14, true, rightMid, AR);
+    valRow(r + 12);
+    put(r + 12, c, 'QTY PER CARTON', 10, true, leftNowrap, AR);
+    put(r + 12, vc, d.qty, 14, true, rightMid, HT);
+    // CARTON NO = n of 总箱数（值/of/总数分占B/C/D三格，无内部竖线）
+    valRow(r + 13);
+    put(r + 13, c, 'CARTON NO', 11, true, leftMid, AR);
+    put(r + 13, vc, d.no, 14, true, rightMid, HT);
+    put(r + 13, vc + 1, 'of', 12, true, center, AR);
+    put(r + 13, vc + 2, totalCartons, 14, true, leftMid, HT);
+    // G.W / N.W（值右对齐B格 + KG居中C格）
+    valRow(r + 14);
+    put(r + 14, c, 'G.W', 11, true, leftMid, AR);
+    put(r + 14, vc, +d.gw.toFixed(3), 12, true, rightMid, HT);
+    put(r + 14, vc + 1, 'KG', 12, false, center);
+    valRow(r + 15);
+    put(r + 15, c, 'N.W', 11, true, leftMid, AR);
+    put(r + 15, vc, +d.nw.toFixed(3), 12, true, rightMid, HT);
+    put(r + 15, vc + 1, 'KG', 12, false, center);
+    // DESTINATION / MADE IN CHINA
+    fieldRow(r + 16, 'DESTINATION', DEST, 12, false, AB);
+    put(r + 17, c, 'MADE IN CHINA', 19, true, center);
+    fullBox(r + 17, r + 18);
+  }
+
+  // 一比一样本布局：每箱一行2张（左A..F、右I..N同箱号），每块19行；
+  // 行高19.75，块间距交替 2行空白/0行空白 → 每2块=40行恰好一张A4（100%无缩放）
+  let row = 1;
+  cartons.forEach((_, k) => {
+    drawLabel(k, row, 1); // 左张
+    drawLabel(k, row, 9); // 右张（同箱重复）
+    row += (k % 2 === 0) ? 21 : 19; // 偶数箱后空2行，奇数箱后紧接下一块
+  });
+  for (let rr = 1; rr < row; rr++) sheet.getRow(rr).height = 19.75;
+  // 每2块=40行一张A4：在每组边界加手动分页符（与自然分页位置重合，防漂移切断标签）
+  for (let r = 40; r < row - 1; r += 40) {
+    sheet.rowBreaks.push({id: r, max: 16383, man: 1});
+  }
+
+  // 打印区域只含标签列 A..N
+  sheet.pageSetup.printArea = `A1:N${row - 1}`;
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const style = packData[0]?.style || '';
+  const po = packData[0]?.po || '';
+  a.download = `${style}-${po}-${cartons.length}箱-箱贴.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+/* ==================== 导出通用装箱单 ==================== */
+// 常见颜色中英文名映射（CODE/COLOR 两列的兜底字典；颜色行已填中文时优先用颜色行）
+const COLOR_ZH = {
+  'Black':'黑色','Ivory':'白色','Navy':'藏青','Sapphire Blue':'宝蓝','Sky Blue':'天空蓝',
+  'Speckled Beige':'夹花斑白','Charcoal':'木炭色','Charcoal/Offwhite Stripe':'木炭色/米色 条纹',
+  'Charcoal / Offwhite Stripe':'木炭色/米色 条纹','Ivory/Black':'白色/黑色','Ivory/Black Stripe':'白色/黑色 条纹',
+  'Navy/White':'藏青/米白','Navy / White':'藏青/米白','Speckled Beige/Ivory':'夹花斑白/白色',
+  'Speckled Beige/Ivory Stripe':'夹花斑白/白色 条纹','Off White/Navy/Red Variegated Stripe':'米色/藏青/枫叶红 条纹',
+  'Heather Dove Grey':'夹花鸽子灰','Heather Brown':'夹花棕','Heather Brown/Ivory':'夹花棕/白色',
+  'Cornflower Mini Stripe':'矢车菊蓝色/白色 条纹','Cornflower Blue':'矢车菊蓝','Offwhite/Black Stripe':'米色/黑色 条纹',
+  'Canyon Burnt Orange':'焦橙色','Deep Navy':'深海蓝','Earthen Khaki':'卡其色','Sandstone Beige':'砂岩米色',
+  'Big Sur Green':'大苏尔绿','Herb Green':'草本绿','Marled Rose Pink':'玫瑰粉','Redwood Brown':'红木棕',
+  'Shell Pink':'浅粉','Vintage Rose':'紫灰色','Chocolate Plum Brown':'巧克力梅棕','Bubblegum/Fudge Mariner Stripe':'泡泡粉/软糖棕 条纹',
+  'Navy / Spritz Red Stripe':'藏青/喷红 条纹','Toasted Almond Brown Mini Stripe':'烤杏仁棕 细条纹','Brown':'深花咖','Deep Brick Red':'深砖红'
+};
+const colorZH = s => COLOR_ZH[String(s || '').trim()] || '';
+
+async function exportGeneralPacking() {
+  if (typeof ExcelJS === 'undefined') { alert('网络异常，导出功能暂不可用，联网后刷新页面'); return; }
+  if (!packData.length) { alert('请先生成装箱清单！'); return; }
+  const po = $('poInput').value, style = $('styleInput').value, product = $('prodInput').value;
+  const sizes = state.sizes.slice();
+  const n = sizes.length;
+
+  // 中文颜色：颜色行 COLOR 框优先，兜底字典
+  // BUG修复：键统一用空格压缩规范化（与装箱行 pd.color 一致），否则颜色名含多余空格时汇总归零
+  const normName = s => String(s ?? '').replace(/\s+/g, ' ').trim();
+  const zhMap = {};
+  state.colors.forEach(c => { if (c.name) zhMap[normName(c.name)] = String(c.nameZh || '').trim(); });
+  const zhOf = code => zhMap[normName(code)] || colorZH(code);
+
+  // 订单数量 / 装箱数量 / 相差（混箱行按 _mixedItems 分尺码累计，不再漏计）
+  const orderMap = {};
+  state.colors.forEach(c => { orderMap[normName(c.name)] = {}; sizes.forEach(sz => { orderMap[normName(c.name)][sz] = +c.sizes[sz]?.qty || 0; }); });
+  const packMap = {};
+  state.colors.forEach(c => { packMap[normName(c.name)] = {}; sizes.forEach(sz => { packMap[normName(c.name)][sz] = 0; }); });
+  packData.forEach(pd => {
+    if (!packMap[pd.color]) return;
+    if (pd._mixedItems) {
+      pd._mixedItems.forEach(it => { if (packMap[pd.color][it.size] !== undefined) packMap[pd.color][it.size] += it.qty; });
+    } else if (pd.size && packMap[pd.color][pd.size] !== undefined) {
+      packMap[pd.color][pd.size] += pd.qty;
+    }
+  });
+  // 大箱/小箱数量统计
+  let bigBoxCnt = 0, smallBoxCnt = 0;
+  packData.forEach(pd => {
+    if (pd.boxType === 'small') smallBoxCnt += (pd.ctns || 1);
+    else if (pd.boxType === 'big') bigBoxCnt += (pd.ctns || 1);
+  });
+
+  const boxCfgNow = {
+    big: {H: num('bigH', 40), selfW: num('bigSelfW', 1.5), cbm: (num('bigL', 60) / 100) * (num('bigW', 40) / 100) * (num('bigH', 40) / 100)},
+    small: {H: num('smallH', 20), selfW: num('smallSelfW', 1.1), cbm: (num('smallL', 60) / 100) * (num('smallW', 40) / 100) * (num('smallH', 20) / 100)}
+  };
+
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet(String(po || '装箱单'));
+  sheet.pageSetup.paperSize = 9; sheet.pageSetup.orientation = 'portrait';
+  sheet.pageSetup.margins = {left: 0.512, right: 0.197, top: 0.59, bottom: 0.331, header: 0.3, footer: 0.3};
+
+  // 列（自适应）：A:C=CTN NO, D=CTNS, E=CODE, F=COLOR, G=色组, 8..=尺码列, 之后 PCS/NW/GW/CBM
+  const colCTN1 = 1, colCTNS = 4, colCODE = 5, colCOLOR = 6, colGRP = 7;
+  const sizeStart = 8;
+  const colPCS = sizeStart + n, colNW = colPCS + 1, colGW = colNW + 1, colCBM = colGW + 1;
+  const totalCols = colCBM;
+  sheet.getColumn(colCTN1).width = 7;
+  sheet.getColumn(colCTNS).width = 6;
+  sheet.getColumn(colCODE).width = 22;
+  sheet.getColumn(colCOLOR).width = 14;
+  sheet.getColumn(colGRP).width = 5;
+  for (let i = 0; i < n; i++) sheet.getColumn(sizeStart + i).width = 7;
+  sheet.getColumn(colPCS).width = 9;
+  sheet.getColumn(colNW).width = 9;
+  sheet.getColumn(colGW).width = 9;
+  sheet.getColumn(colCBM).width = 9;
+
+  const FONT = 'Arial';
+  const FZ = '微软雅黑';
+  const FT = (s, b, name) => ({name: name || FONT, size: s, bold: !!b});
+  const thin = {style: 'thin', color: {argb: 'FF000000'}};
+  const B = {top: thin, left: thin, bottom: thin, right: thin};
+  const CTR = {horizontal: 'center', vertical: 'middle'};
+  const LFT = {horizontal: 'left', vertical: 'middle', wrapText: true};
+  const yellowFill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFFFE699'}};
+  const purpleFill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE2D5F7'}}; // 混箱行：浅紫色填充
+  const put = (r, c, v, f, al, brd) => {
+    const cell = sheet.getCell(r, c);
+    if (v !== undefined && v !== null) cell.value = v;
+    cell.font = f;
+    cell.alignment = al || CTR;
+    if (brd !== false) cell.border = B;
+    return cell;
+  };
+  const mergeRow = (r, c1, c2, v, f, al) => { sheet.mergeCells(r, c1, r, c2); put(r, c1, v, f, al || CTR); for (let c = c1 + 1; c <= c2; c++) sheet.getCell(r, c).border = B; };
+  let r = 1;
+  const d = new Date();
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  // ===== 标题区 =====
+  mergeRow(r, 1, totalCols, `（${d.getFullYear()}）浙江商锦纺织科技股份有限公司`, FT(16, true, FZ), CTR); sheet.getRow(r).height = 24; r++;
+  mergeRow(r, 1, totalCols, '（预装）  箱 单', FT(16, true, FZ), CTR); sheet.getRow(r).height = 22; r++;
+  // 款号/PO/日期
+  sheet.mergeCells(r, 1, r, 3); put(r, 1, `款号：${style}`, FT(11, true, FZ), LFT); for (let c = 2; c <= 3; c++) sheet.getCell(r, c).border = B;
+  sheet.mergeCells(r, colCODE, r, colCOLOR); put(r, colCODE, `PO：${po}`, FT(11, true, FZ), LFT); sheet.getCell(r, colCOLOR).border = B;
+  sheet.mergeCells(r, colGRP, r, colPCS); put(r, colGRP, `日期：${dateStr}`, FT(11, true, FZ), LFT); for (let c = colGRP + 1; c <= colPCS; c++) sheet.getCell(r, c).border = B;
+  sheet.getRow(r).height = 20; r++;
+  if (product) { mergeRow(r, 1, totalCols, `Product：${product}`, FT(10, false, FONT), LFT); sheet.getRow(r).height = 18; r++; }
+
+  // ===== 表头 =====
+  const hr = r;
+  sheet.mergeCells(hr, colCTN1, hr + 1, colCTN1 + 2); put(hr, colCTN1, 'CTN  NO', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) for (let c = colCTN1; c <= colCTN1 + 2; c++) sheet.getCell(rr2, c).border = B;
+  sheet.mergeCells(hr, colCTNS, hr + 1, colCTNS); put(hr, colCTNS, 'CTNS', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colCTNS).border = B;
+  sheet.mergeCells(hr, colCODE, hr + 1, colCODE); put(hr, colCODE, 'CODE', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colCODE).border = B;
+  sheet.mergeCells(hr, colCOLOR, hr + 1, colCOLOR); put(hr, colCOLOR, 'COLOR', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colCOLOR).border = B;
+  sheet.mergeCells(hr, colGRP, hr + 1, colGRP); put(hr, colGRP, '色组', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colGRP).border = B;
+  sheet.mergeCells(hr, sizeStart, hr, sizeStart + n - 1); put(hr, sizeStart, 'SIZE', FT(11, true, FZ), CTR);
+  for (let c = sizeStart; c <= sizeStart + n - 1; c++) sheet.getCell(hr, c).border = B;
+  // BUG修复：SIZE 第二行各尺码独立成列，禁止整行合并（合并后多次写入互相覆盖，只剩最后一个尺码如 XL）
+  for (let c = sizeStart; c <= sizeStart + n - 1; c++) sheet.getCell(hr + 1, c).border = B;
+  sheet.mergeCells(hr, colPCS, hr + 1, colPCS); put(hr, colPCS, 'PCS/\nCTN', FT(11, true, FZ), {horizontal: 'center', vertical: 'middle', wrapText: true});
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colPCS).border = B;
+  sheet.mergeCells(hr, colNW, hr + 1, colNW); put(hr, colNW, 'N.W', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colNW).border = B;
+  sheet.mergeCells(hr, colGW, hr + 1, colGW); put(hr, colGW, 'G.W', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colGW).border = B;
+  sheet.mergeCells(hr, colCBM, hr + 1, colCBM); put(hr, colCBM, 'CBM', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colCBM).border = B;
+  sizes.forEach((sz, i) => put(hr + 1, sizeStart + i, sz, FT(11, true, FZ), CTR));
+  sheet.getRow(hr).height = 18; sheet.getRow(hr + 1).height = 18;
+  r = hr + 2;
+
+  // ===== 装箱明细 =====
+  const colorGroup = {}; let grp = 0; const colorOrder = [];
+  packData.forEach(pd => { if (!colorGroup[pd.color]) { grp++; colorGroup[pd.color] = grp; if (!colorOrder.includes(pd.color)) colorOrder.push(pd.color); } });
+  packData.forEach(pd => {
+    let s = pd.cartonNo, e = pd.cartonNo, ctns = pd.ctns || 1;
+    if (String(pd.cartonNo).indexOf('-') !== -1) { const p = String(pd.cartonNo).split('-'); s = p[0]; e = p[1]; }
+    const perCarton = Math.round(pd.qty / ctns);
+    const isSmall = pd.boxType === 'small';
+    // 混箱行浅紫填充；小箱行黄色填充（混箱优先紫色）
+    const fill = pd._mixed ? purpleFill : (isSmall ? yellowFill : null);
+    const applyFill = c => { if (fill) sheet.getCell(r, c).fill = fill; };
+    sheet.mergeCells(r, colCTN1, r, colCTN1 + 2); put(r, colCTN1, s === e ? Number(s) : `${s}-${e}`, FT(11, false, FZ), CTR);
+    for (let c = colCTN1; c <= colCTN1 + 2; c++) { sheet.getCell(r, c).border = B; applyFill(c); }
+    put(r, colCTNS, ctns, FT(11, false, FZ), CTR); applyFill(colCTNS); sheet.getCell(r, colCTNS).border = B;
+    put(r, colCODE, pd.color, FT(10, false, FONT), CTR); applyFill(colCODE); sheet.getCell(r, colCODE).border = B;
+    put(r, colCOLOR, zhOf(pd.color), FT(10, false, FZ), CTR); applyFill(colCOLOR); sheet.getCell(r, colCOLOR).border = B;
+    put(r, colGRP, colorGroup[pd.color], FT(11, false, FZ), CTR); applyFill(colGRP); sheet.getCell(r, colGRP).border = B;
+    // 尺码列：混箱行按 _mixedItems 分尺码写入每码件数（每箱），单码行写该码件数
+    sizes.forEach((sz, i) => {
+      let v = '';
+      if (pd._mixedItems) {
+        const it = pd._mixedItems.find(x => x.size === sz);
+        if (it) v = Math.round(it.qty / ctns);
+      } else if (pd.size === sz) v = perCarton;
+      put(r, sizeStart + i, v, FT(11, false, FZ), CTR); applyFill(sizeStart + i); sheet.getCell(r, sizeStart + i).border = B;
+    });
+    put(r, colPCS, perCarton, FT(11, false, FZ), CTR); applyFill(colPCS); sheet.getCell(r, colPCS).border = B;
+    put(r, colNW, pd.nw, FT(11, false, FZ), CTR); applyFill(colNW); sheet.getCell(r, colNW).border = B;
+    put(r, colGW, pd.gw, FT(11, false, FZ), CTR); applyFill(colGW); sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, pd.cbm, FT(11, false, FZ), CTR); applyFill(colCBM); sheet.getCell(r, colCBM).border = B;
+    sheet.getRow(r).height = 18;
+    r++;
+  });
+
+  // ===== 箱规区块 =====
+  const boxSec = r;
+  mergeRow(boxSec, 1, totalCols, '箱规参数', FT(11, true, FZ), LFT); sheet.getRow(boxSec).height = 18; r++;
+  // 表头：纸箱高度/纸箱重量/CBM/箱数
+  const boxHdr = ['箱型', '纸箱高度(CM)', '纸箱重量(KG)', '体积CBM', '箱数'];
+  put(r, colCTN1, boxHdr[0], FT(11, true, FZ), CTR); sheet.mergeCells(r, colCTN1, r, colCTN1 + 2); for (let c = colCTN1; c <= colCTN1 + 2; c++) sheet.getCell(r, c).border = B;
+  put(r, colCTNS, boxHdr[1], FT(11, true, FZ), CTR); sheet.mergeCells(r, colCTNS, r, colCODE); for (let c = colCTNS; c <= colCODE; c++) sheet.getCell(r, c).border = B;
+  put(r, colCOLOR, boxHdr[2], FT(11, true, FZ), CTR); sheet.mergeCells(r, colCOLOR, r, colGRP); for (let c = colCOLOR; c <= colGRP; c++) sheet.getCell(r, c).border = B;
+  put(r, sizeStart, boxHdr[3], FT(11, true, FZ), CTR); sheet.mergeCells(r, sizeStart, r, sizeStart + n - 1); for (let c = sizeStart; c <= sizeStart + n - 1; c++) sheet.getCell(r, c).border = B;
+  sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+  put(r, colCBM, boxHdr[4], FT(11, true, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+  sheet.getRow(r).height = 18; r++;
+  const boxRows = [['大箱', boxCfgNow.big], ['小箱', boxCfgNow.small]];
+  boxRows.forEach(([lab, bc]) => {
+    const isS = lab === '小箱';
+    const cnt = isS ? smallBoxCnt : bigBoxCnt;
+    put(r, colCTN1, lab, FT(11, false, FZ), CTR); sheet.mergeCells(r, colCTN1, r, colCTN1 + 2); for (let c = colCTN1; c <= colCTN1 + 2; c++) sheet.getCell(r, c).border = B;
+    put(r, colCTNS, bc.H, FT(11, false, FZ), CTR); sheet.mergeCells(r, colCTNS, r, colCODE); for (let c = colCTNS; c <= colCODE; c++) sheet.getCell(r, c).border = B;
+    put(r, colCOLOR, bc.selfW, FT(11, false, FZ), CTR); sheet.mergeCells(r, colCOLOR, r, colGRP); for (let c = colCOLOR; c <= colGRP; c++) sheet.getCell(r, c).border = B;
+    put(r, sizeStart, bc.cbm.toFixed(4), FT(11, false, FZ), CTR); sheet.mergeCells(r, sizeStart, r, sizeStart + n - 1); for (let c = sizeStart; c <= sizeStart + n - 1; c++) sheet.getCell(r, c).border = B;
+    sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, cnt, FT(11, false, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+    if (isS) for (let c = colCTN1; c <= totalCols; c++) sheet.getCell(r, c).fill = yellowFill;
+    sheet.getRow(r).height = 18; r++;
+  });
+  // 每件克重（每码）
+  put(r, colCTN1, '每件克重(KG/件)', FT(11, true, FZ), CTR); sheet.mergeCells(r, colCTN1, r, colGRP); for (let c = colCTN1; c <= colGRP; c++) sheet.getCell(r, c).border = B;
+  sizes.forEach((sz, i) => { put(r, sizeStart + i, (state.weight[sz] ?? ''), FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+  for (let c = colPCS; c <= colCBM; c++) sheet.getCell(r, c).border = B;
+  sheet.getRow(r).height = 18; r++;
+
+  // ===== 空白分隔行 =====
+  r++;
+
+  // ===== 汇总区块（装箱数量/相差/订单数量）=====
+  const putSecHdr = (label) => {
+    sheet.mergeCells(r, colCTN1, r, colCTNS); put(r, colCTN1, label, FT(11, true, FZ), CTR);
+    for (let c = colCTN1; c <= colCTNS; c++) sheet.getCell(r, c).border = B;
+    put(r, colCODE, 'CODE', FT(11, true, FZ), CTR); sheet.getCell(r, colCODE).border = B;
+    put(r, colCOLOR, 'COLOR', FT(11, true, FZ), CTR); sheet.getCell(r, colCOLOR).border = B;
+    put(r, colGRP, '', FT(11, true, FZ), CTR); sheet.getCell(r, colGRP).border = B;
+    sizes.forEach((sz, i) => { put(r, sizeStart + i, sz, FT(11, true, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+    sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, 'TOTAL', FT(11, true, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+    sheet.getRow(r).height = 18; r++;
+  };
+  const putColorRow = (map, color, withGrp) => {
+    sheet.mergeCells(r, colCTN1, r, colCTNS); put(r, colCTN1, '', FT(11, false, FZ), CTR);
+    for (let c = colCTN1; c <= colCTNS; c++) sheet.getCell(r, c).border = B;
+    put(r, colCODE, color, FT(10, false, FONT), CTR); sheet.getCell(r, colCODE).border = B;
+    put(r, colCOLOR, zhOf(color), FT(10, false, FZ), CTR); sheet.getCell(r, colCOLOR).border = B;
+    put(r, colGRP, withGrp ? (colorGroup[color] || '') : '', FT(11, false, FZ), CTR); sheet.getCell(r, colGRP).border = B;
+    let rt = 0;
+    sizes.forEach((sz, i) => { const q = map[color]?.[sz] || 0; rt += q; put(r, sizeStart + i, q, FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+    sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, rt, FT(11, false, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+    sheet.getRow(r).height = 18; r++;
+  };
+  const putTotalRow = (calc) => {
+    sheet.mergeCells(r, colCTN1, r, colCTNS); put(r, colCTN1, '', FT(11, false, FZ), CTR);
+    for (let c = colCTN1; c <= colCTNS; c++) sheet.getCell(r, c).border = B;
+    put(r, colCODE, 'TOTAL', FT(11, true, FZ), CTR); sheet.getCell(r, colCODE).border = B;
+    put(r, colCOLOR, '', FT(11, false, FZ), CTR); sheet.getCell(r, colCOLOR).border = B;
+    put(r, colGRP, '', FT(11, false, FZ), CTR); sheet.getCell(r, colGRP).border = B;
+    let gt = 0;
+    sizes.forEach((sz, i) => { let s = 0; colorOrder.forEach(c => { s += calc(c, sz); }); gt += s; put(r, sizeStart + i, s, FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+    sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, gt, FT(11, true, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+    sheet.getRow(r).height = 18; r++;
+  };
+  // 装箱数量
+  putSecHdr('装箱数量'); colorOrder.forEach(c => putColorRow(packMap, c, true)); putTotalRow((c, sz) => packMap[c]?.[sz] || 0);
+  r++; // 空行
+  // 相差（订单-装箱）
+  putSecHdr('相差'); colorOrder.forEach(c => {
+    sheet.mergeCells(r, colCTN1, r, colCTNS); put(r, colCTN1, '', FT(11, false, FZ), CTR);
+    for (let c2 = colCTN1; c2 <= colCTNS; c2++) sheet.getCell(r, c2).border = B;
+    put(r, colCODE, c, FT(10, false, FONT), CTR); sheet.getCell(r, colCODE).border = B;
+    put(r, colCOLOR, zhOf(c), FT(10, false, FZ), CTR); sheet.getCell(r, colCOLOR).border = B;
+    put(r, colGRP, '', FT(11, false, FZ), CTR); sheet.getCell(r, colGRP).border = B;
+    let rt = 0;
+    sizes.forEach((sz, i) => { const dd = (orderMap[c]?.[sz] || 0) - (packMap[c]?.[sz] || 0); rt += dd; put(r, sizeStart + i, dd, FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+    sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
+    put(r, colCBM, rt, FT(11, false, FZ), CTR); sheet.getCell(r, colCBM).border = B;
+    sheet.getRow(r).height = 18; r++;
+  });
+  putTotalRow((c, sz) => (orderMap[c]?.[sz] || 0) - (packMap[c]?.[sz] || 0));
+  r++; // 空行
+  // 订单数量
+  putSecHdr('订单数量'); colorOrder.forEach(c => putColorRow(orderMap, c, false)); putTotalRow((c, sz) => orderMap[c]?.[sz] || 0);
+
+  // 列号→字母（支持任意列数；BUG修复：原 (nn-m)/26 不收敛会死循环卡死页面，改为 (nn-m-1)/26）
+  const colLetter = nn => { let s = ''; while (nn > 0) { const m = (nn - 1) % 26; s = String.fromCharCode(65 + m) + s; nn = (nn - m - 1) / 26; } return s; };
+  sheet.pageSetup.printArea = `A1:${colLetter(totalCols)}${r}`;
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${style}（${po}）装箱单.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ==================== Excel导入（多品牌自适配） ====================
+   内容识别规则（不绑定单一品牌模板）：
+   - 颜色表头同义词：客色号/Color/Colour/颜色/色号/英文颜色/CODE；中文颜色：厂色号/中文颜色/厂色
+   - 尺码表头：XS/XXS/S/M/L/XL/XXL/XXXL 及大码 1X-9X（自动识别，跟随订单）
+   - PO 同义词：PO/PO#/订单号/Purchase Order；款号同义词：Style/款号/货号
+   - Product 自适配：优先取“原料/材质/成分”标签右侧值（如 100%有机棉、
+     2/28NM 95%RECYCLED WOOL羊毛 5%CASHMERE羊绒），其次成分特征单元格，再次款号列英文描述，最后款号库
+   - 颜色行过滤：合计/出货时间/日期等非颜色行一律跳过（红框那种合计行不再导入） */
+const hasCJK = s => /[一-龥]/.test(s);
+const FIBER_RE = /(cotton|linen|wool|cashmere|merino|alpaca|mohair|angora|yak|silk|hemp|bamboo|viscose|modal|polyester|acrylic|nylon)/i;
+const GARMENT_RE = /(sweater|cardigan|vest|polo|tee|hoodie|dress|skirt|tank|crew|neck|pullover|jacket|coat|pants?|shorts|legging|henley|top|shirt)/i;
+function looksLikeProduct(s) {
+  if (!s || hasCJK(s)) return false;
+  if (/^\d{1,3}(\.\d+)?\s*%/.test(s)) return true; // 百分比成分开头
+  return /[A-Za-z]{3,}/.test(s) && (FIBER_RE.test(s) || GARMENT_RE.test(s));
+}
+const looksLikeStyleNo = s =>
+  /^[A-Za-z][A-Za-z0-9-]*-[A-Za-z0-9-]+$/.test(s) && !looksLikeProduct(s) && !hasCJK(s);
+// 通用尺码识别：XS/XXS/S/M/L/XL/XXL/XXXL 及大码 1X-9X
+const SIZE_RE = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[1-9]X)$/;
+// 成分特征：NM纱支 或 百分比 + 纤维词（中英文）
+const COMP_RE = /(\d+(\.\d+)?\s*\/\s*\d+\s*NM|\d{1,3}(\.\d+)?\s*%)/i;
+const FIBER_ANY_RE = /(wool|cashmere|merino|alpaca|mohair|angora|yak|silk|hemp|bamboo|viscose|modal|lyocell|polyester|acrylic|nylon|polyamide|cotton|linen|ramie|棉|羊毛|羊绒|驼毛|真丝|桑蚕丝|麻|粘胶|莫代尔|莱赛尔|涤纶|聚酯|锦纶|腈纶|氨纶)/i;
+
+// 截掉成分串尾部的工艺备注：连续保留 含%/NM纱支/纤维词/英文数字开头 的token，遇到纯中文备注即停
+// 例："2/28NM 95%RECYCLED WOOL羊毛 5%CASHMERE羊绒 日本洗长毛" → "2/28NM 95%RECYCLED WOOL羊毛 5%CASHMERE羊绒"
+function trimComposition(s) {
+  const tokens = String(s || '').trim().split(/\s+/);
+  const keep = [];
+  for (const t of tokens) {
+    if (/%/.test(t) || /NM$/i.test(t) || FIBER_ANY_RE.test(t) || /^[A-Za-z0-9]/.test(t)) keep.push(t);
+    else break;
+  }
+  return keep.length ? keep.join(' ') : String(s || '').trim();
+}
+
+// 自适配提取成分/原料（如 100%有机棉、2/28NM 95%RECYCLED WOOL羊毛 5%CASHMERE羊绒）
+function extractComposition(data) {
+  const LABEL_RE = /^(原料|材质|成分|纱支|组分|面料|material|composition|fabric|content)$/i;
+  for (let r = 0; r < Math.min(data.length, 20); r++) {
+    const row = data[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const t = String(row[c] ?? '').trim().replace(/[:：\s]+$/g, '');
+      if (!LABEL_RE.test(t.replace(/\s+/g, ''))) continue;
+      const parts = [];
+      for (let k = c + 1; k < row.length && parts.length < 3; k++) {
+        const v = String(row[k] ?? '').trim();
+        if (!v) continue;
+        if (/^(成衣工厂|业务|制单日期|客户|品牌|备注)/.test(v)) break;
+        parts.push(v);
+      }
+      if (parts.length) return trimComposition(parts.join(' ').replace(/\s+/g, ' ').trim());
+    }
+  }
+  // 兜底：直接扫描成分特征单元格
+  for (let r = 0; r < Math.min(data.length, 20); r++) {
+    const row = data[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const v = String(row[c] ?? '').trim();
+      if (v.length > 5 && v.length < 90 && COMP_RE.test(v) && FIBER_ANY_RE.test(v) && !/(客户|品牌|订单|款号)/.test(v)) {
+        return trimComposition(v.replace(/\s+/g, ' ').trim());
+      }
+    }
+  }
+  return '';
+}
+
+// 纯函数：解析订单表二维数组，返回 {error} 或 {poNum, styleNo, product, colorList, sizes}
+function parseOrderSheet(data) {
+  // 表头规范化：去全部空格+小写（兼容“款     号”“尺   码”“PO号码”等带空格表头）
+  const normHdr = s => String(s ?? '').trim().replace(/\s+/g, '').toLowerCase();
+  const colIdx = {po: -1, style: -1, colorEn: -1, colorZh: -1};
+  const firstSeen = {po: -1, style: -1};
+  let colorRow = -1;
+  const sizeCols = {};
+  const sizeOrder = [];
+  const recordSize = (cell, c) => {
+    const s = cell.toUpperCase();
+    if (SIZE_RE.test(s) && !(s in sizeCols)) { sizeCols[s] = c; sizeOrder.push(s); }
+  };
+  const EN_HDR = ['客色号', '客色名', '颜色名', 'color', 'colour', '颜色', '颜色代码', '英文颜色', '色号', 'code'];
+  const ZH_HDR = ['厂色号', '中文颜色', '厂色', '中文色号'];
+  const PO_HDR = ['po', 'po#', 'po no', 'po no.', 'pono', 'po number', 'ponumber', 'po号码', '订单号', 'purchase order id', 'purchase order'];
+  const ST_HDR = ['style', 'style number', 'style no', 'styleno', 'stylenumber', '款号', '货号'];
+  for (let r = 0; r < data.length && r < 25; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const found = {po: -1, style: -1, colorEn: -1, colorZh: -1};
+    row.forEach((v, c) => {
+      const t = normHdr(v);
+      if (!t) return;
+      if (found.colorEn === -1 && EN_HDR.includes(t)) found.colorEn = c;
+      else if (found.colorZh === -1 && ZH_HDR.includes(t)) found.colorZh = c;
+      if (found.po === -1 && PO_HDR.includes(t)) found.po = c;
+      if (found.style === -1 && ST_HDR.includes(t)) found.style = c;
+    });
+    if (firstSeen.po === -1 && found.po !== -1) firstSeen.po = found.po;
+    if (firstSeen.style === -1 && found.style !== -1) firstSeen.style = found.style;
+    // 数据表头行 = 颜色表头所在行；PO/款号数据列优先取该行识别结果（避免误抓标签行）
+    if (colorRow === -1 && found.colorEn !== -1) {
+      colorRow = r;
+      colIdx.colorEn = found.colorEn;
+      colIdx.colorZh = found.colorZh;
+      colIdx.po = found.po;
+      colIdx.style = found.style;
+      row.forEach((v, c) => recordSize(String(v ?? '').trim(), c));
+    }
+  }
+  if (sizeOrder.length === 0) {
+    // 兜底：颜色行没有尺码表头时，扫描前25行任意表头行
+    for (let r = 0; r < data.length && r < 25 && sizeOrder.length === 0; r++) {
+      const row = data[r];
+      if (!row) continue;
+      row.forEach((v, c) => recordSize(String(v ?? '').trim(), c));
+    }
+  }
+  if (colIdx.colorEn === -1) return {error: '未找到颜色列表头（客色号/Color/颜色），请检查Excel表格'};
+  if (sizeOrder.length === 0) return {error: '未识别到尺码列表头（XS/S/M/L/XL 或 1X/2X/3X），请检查Excel表格'};
+  if (colIdx.po === -1) colIdx.po = firstSeen.po !== -1 ? firstSeen.po : 1;       // 兜底：PO 默认 B 列
+  if (colIdx.style === -1) colIdx.style = firstSeen.style !== -1 ? firstSeen.style : 2; // 兜底：款号/Product 默认 C 列
+
+  // PO：优先数据列首个 PO 形态值（支持 38191-06 带短横）→ 标签值（订单号: xxx）→ 纯数字兜底
+  let poNum = '', styleNo = '';
+  const PO_RE = /^\d{4,6}(-\d{1,2})?[A-Za-z]?$/;
+  if (colIdx.po !== -1) {
+    for (let r = colorRow + 1; r < data.length; r++) {
+      const v = String(data[r]?.[colIdx.po] ?? '').trim();
+      if (PO_RE.test(v)) { poNum = v; break; }
+    }
+  }
+  if (!poNum) {
+    for (let r = 0; r < Math.min(data.length, 12) && !poNum; r++) {
+      const row = data[r] || [];
+      for (let c = 0; c < row.length && !poNum; c++) {
+        const t = normHdr(row[c]).replace(/[:：]+$/, '');
+        if (t === '订单号' || t === 'po' || t === 'po#' || t === 'po号码' || t === 'pono') {
+          for (let k = c + 1; k < row.length; k++) {
+            const v = String(row[k] ?? '').trim();
+            if (v && !/^(主唛|挂牌|胶袋|装箱|船样|客户|品牌)/.test(v)) { poNum = v; break; }
+          }
+        }
+      }
+    }
+  }
+  if (!poNum) {
+    data.forEach(row => { if (!row) return; row.forEach(v => { const s = String(v ?? '').trim(); if (!poNum && /^\d{4,6}$/.test(s)) poNum = s; }); });
+  }
+  // 款号：款号列首个有效值（允许 5940/593 数字斜杠款号，排除 Product 英文描述）→ 兜底原正则
+  if (colIdx.style !== -1) {
+    for (let r = colorRow + 1; r < data.length; r++) {
+      const v = String(data[r]?.[colIdx.style] ?? '').trim();
+      const nv = v.replace(/\s+/g, '');
+      if (v && !looksLikeProduct(v) && !/^(款号|货号|style|stylenumber)$/i.test(nv)) { styleNo = v; break; }
+    }
+  }
+  if (!styleNo) {
+    data.forEach(row => {
+      if (!row || styleNo) return;
+      const styleCell = String(row[colIdx.style] ?? '').trim();
+      if (looksLikeStyleNo(styleCell)) styleNo = styleCell;
+    });
+  }
+  // Product 自适配优先级：款号列英文品名描述（QUINCE类）> 款号库 > 原料/成分标签值（MASSIMO等其他品牌）> 成分特征单元格
+  let product = '';
+  for (let r = 0; r < data.length; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const styleCell = String(row[colIdx.style] ?? '').trim();
+    if (looksLikeProduct(styleCell)) { product = styleCell.replace(/\s+/g, ' ').trim(); break; }
+  }
+  if (!product && styleNo) product = lookupProduct(styleNo);
+  if (!product) product = extractComposition(data);
+
+  // 颜色行收集：过滤合计/出货时间等非颜色行（红框那种行不再导入）
+  const BAD_RE = /(合计|总计|出货|交期|备注|注意|subtotal|total|delivery|date|日期|件数)/i;
+  const colorList = [];
+  const seen = {};
+  data.forEach(row => {
+    if (!row) return;
+    const raw = String(row[colIdx.colorEn] ?? '').trim();
+    if (!raw || BAD_RE.test(raw) || !/[A-Za-z]/.test(raw)) return; // 必须含英文字母且非黑名单词
+    // 颜色列左侧出现 合计/出货 等字样 → 汇总行，跳过
+    for (let c = 0; c < colIdx.colorEn; c++) {
+      const lv = String(row[c] ?? '').trim();
+      if (/(合计|总计|出货|交期|subtotal|total)/i.test(lv)) return;
+    }
+    // 中英混合智能拆分："318#Crema 奶白" → CODE=318#Crema，中文=奶白
+    let code = raw, zh = colIdx.colorZh > -1 ? String(row[colIdx.colorZh] ?? '').trim() : '';
+    const m = raw.match(/^([^一-龥]*)([一-龥].*)$/);
+    if (m && m[1].trim() && m[2]) { code = m[1].trim(); if (!zh) zh = m[2].trim(); }
+    const qty = {};
+    let total = 0;
+    sizeOrder.forEach(sz => { const q = Math.round(+row[sizeCols[sz]] || 0); qty[sz] = q; total += q; });
+    if (total <= 0) return;
+    if (seen[code]) return;
+    seen[code] = true;
+    colorList.push({color: code, zh: zh || colorZH(code), qty});
+  });
+  return {poNum, styleNo, product, colorList, sizes: sizeOrder};
+}
+
+$('importExcelBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const wb = XLSX.read(await file.arrayBuffer());
+  const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
+  const res = parseOrderSheet(data);
+  if (res.error) { alert(res.error); return; }
+  let {poNum, styleNo, product, colorList, sizes} = res;
+
+  $('poInput').value = poNum;
+  $('styleInput').value = styleNo;
+  // 订单表没有 Product/原料 行时，按款号从 SKU 库自动匹配
+  if (!product && styleNo) product = lookupProduct(styleNo);
+  $('prodInput').value = product;
+
+  // 尺码跟随订单表（支持 XS-XL / 1X-3X 等），同步顶部尺码栏与参数
+  state.sizes = [...sizes];
+  ensureSizeMaps();
+  renderSizeBar();
+  renderBoxQty();
+  renderWeight();
+  if (styleNo) applyStyleParams(styleNo);
+
+  state.colors = colorList.map(({color, zh, qty}) => {
+    const szs = {};
+    sizes.forEach(sz => { szs[sz] = {qty: qty[sz] || '', barcode: '', lot: ''}; });
+    return {name: color, nameZh: zh || '', sizes: szs};
+  });
+
+  // 按 款号+颜色+尺码 自动匹配填充 SKU；LOT号从本次会话已导入的 Barcodes 表按 PO+颜色+尺码 匹配
+  let skuOk = 0, skuMiss = 0, lotOk = 0;
+  state.colors.forEach(c => {
+    sizes.forEach(sz => {
+      const cell = c.sizes[sz];
+      if (+cell.qty > 0) {
+        const sku = lookupSku(styleNo, c.name, sz);
+        cell.barcode = sku;
+        if (sku) skuOk++; else skuMiss++;
+        const lotInfo = lookupLotInfo(poNum, c.name, sz);
+        if (lotInfo.length) { cell.lot = lotInfo.map(l => l.lot).join('/'); lotOk++; }
+      }
+    });
+  });
+  renderColors();
+  e.target.value = ''; // 允许再次选择同一文件导入
+  alert(`导入完成：\nPO:${poNum}\n款号:${styleNo}\nProduct:${product || '(未识别，请手填)'}\n尺码：${sizes.join(' / ')}\n共识别${colorList.length}个颜色（CODE+COLOR 已自动匹配，合计/出货行已过滤）\nSKU自动匹配：${skuOk} 个${skuMiss ? '，未录入 ' + skuMiss + ' 个（SKU格留空，请手动填写）' : '，全部命中'}\nLOT自动匹配：${lotOk} 个${lotOk ? '' : '（未导入该PO的Barcodes表时为空，可手填）'}`);
+});
+
+/* SKU库更新：上传新的SKU表刷新当前库（不影响已填入页面的SKU） */
+$('importSkuBtn').addEventListener('click', () => $('skuFileInput').click());
+$('skuFileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const wb = XLSX.read(await file.arrayBuffer());
+  const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
+  e.target.value = '';
+  const res = parseSkuSheet(data);
+  if (!res || res.n === 0) {
+    alert('SKU表格解析失败：表头需含 款号(Style)、Color、Size、SKU 列');
+    return;
+  }
+  lsSet(SKU_UPLOAD_KEY, JSON.stringify(res.map)); // 本地保存，刷新后仍生效
+  if (res.products && Object.keys(res.products).length) mergeProductStore(res.products);
+  rebuildSkuMap();   // 内嵌库→上传库→Barcodes库→手动录入 重建，手动录入优先
+  rebuildProductMap();
+  updateSkuDbInfo();
+  alert(`SKU资料库已刷新并本地保存，共 ${res.n} 条（手动录入的SKU不会被覆盖）。重新导入订单即可按新库匹配`);
+});
+function updateSkuDbInfo() {
+  const el = $('skuDbInfo');
+  if (!el) return;
+  let manual = 0, bars = 0, prods = 0;
+  try { manual = Object.keys(JSON.parse(lsGet(SKU_USER_KEY) || '{}')).length; } catch (e) {}
+  try { bars = Object.keys(JSON.parse(lsGet(SKU_BARCODES_KEY) || '{}')).length; } catch (e) {}
+  try { prods = Object.keys(JSON.parse(lsGet(PRODUCT_UPLOAD_KEY) || '{}')).length + Object.keys(SKU_SEED_PRODUCTS).length; } catch (e) {}
+  el.textContent = `当前SKU库：${Object.keys(SKU_MAP).length} 条`
+    + (bars ? `（Barcodes表 ${bars}）` : '')
+    + (manual ? `（手动录入 ${manual}）` : '')
+    + (prods ? `｜Product库 ${prods} 款` : '');
+}
+updateSkuDbInfo();
+
+/* Barcodes表导入：按表头名称动态定位列，
+   抽取 款号+颜色+尺码→SKU 并入本地SKU库，同时收集 Product Name→款号、LOT→件数 */
+function parseBarcodesSheet(data) {
+  let hRow = -1;
+  const col = {style: -1, color: -1, size: -1, sku: -1, bstr: -1, product: -1, lot: -1, po: -1, qty: -1};
+  for (let r = 0; r < data.length && r < 15; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const tmp = {...col};
+    row.forEach((v, c) => {
+      const t = String(v ?? '').trim();
+      if (t === 'Style Number' || t === 'STYLE NUMBER') tmp.style = c;
+      else if (t === 'Color' || t === 'Colour') tmp.color = c;
+      else if (t === 'Size') tmp.size = c;
+      else if (t === 'SKU' || t === 'SKU CODE') tmp.sku = c;
+      else if (t === 'Barcode String') tmp.bstr = c;
+      else if (t === 'Product Name' || t === 'Product') tmp.product = c;
+      else if (t === 'Lot ID') tmp.lot = c;
+      else if (t === 'Purchase Order ID') tmp.po = c;
+      else if (t === 'Quantity') tmp.qty = c;
+    });
+    if (tmp.style !== -1 && tmp.color !== -1 && tmp.size !== -1 && (tmp.sku !== -1 || tmp.bstr !== -1)) {
+      Object.assign(col, tmp);
+      hRow = r;
+      break;
+    }
+  }
+  if (hRow === -1) return {map: {}, products: {}, lotEntries: [], n: 0};
+  const map = {};
+  const products = {};
+  const lotEntries = [];
+  let n = 0;
+  for (let r = hRow + 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row) continue;
+    const style = String(row[col.style] ?? '').trim();
+    const color = String(row[col.color] ?? '').trim();
+    const size = String(row[col.size] ?? '').trim();
+    let sku = col.sku !== -1 ? String(row[col.sku] ?? '').trim() : '';
+    if (!sku && col.bstr !== -1) sku = String(row[col.bstr] ?? '').trim().split('-')[0];
+    if (style && color && size && sku) { map[skuKey(style, color, size)] = sku; n++; }
+    if (style && col.product !== -1) {
+      const p = String(row[col.product] ?? '').trim();
+      if (p) products[stdKey(style)] = p.replace(/\s+/g, ' ').trim();
+    }
+    if (col.lot !== -1 && col.po !== -1) {
+      const lot = String(row[col.lot] ?? '').trim();
+      const po = String(row[col.po] ?? '').trim();
+      const qtyv = col.qty !== -1 ? +row[col.qty] || 0 : 0;
+      if (po && lot && color && size && qtyv > 0) lotEntries.push({po, lot, qty: qtyv, color, size});
+    }
+  }
+  return {map, products, lotEntries, n};
+}
+
+$('importBarcodeBtn').addEventListener('click', () => $('barcodeFileInput').click());
+$('barcodeFileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const wb = XLSX.read(await file.arrayBuffer());
+  const merged = {};
+  const prods = {};
+  const lots = [];
+  wb.SheetNames.forEach(sn => {
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header: 1});
+    const res = parseBarcodesSheet(data);
+    Object.assign(merged, res.map);
+    Object.assign(prods, res.products);
+    lots.push(...res.lotEntries);
+  });
+  e.target.value = '';
+  if (Object.keys(merged).length === 0) {
+    alert('未识别到Barcodes数据：表头需含 Style Number、Color、Size、SKU（或Barcode String）列');
+    return;
+  }
+  let prev = {};
+  try { prev = JSON.parse(lsGet(SKU_BARCODES_KEY) || '{}'); } catch (err) {}
+  Object.assign(prev, merged); // 累积：多份Barcodes表可反复导入
+  lsSet(SKU_BARCODES_KEY, JSON.stringify(prev));
+  if (Object.keys(prods).length) mergeProductStore(prods);
+  if (lots.length) mergeLotEntries(lots); // LOT号+件数 → 仅存内存（每订单LOT不同，不落本地库）
+  rebuildSkuMap();
+  rebuildProductMap();
+  // 若颜色块已存在（先导入订单再导入Barcodes），回填各行 LOT
+  const curPo = ($('poInput')?.value || '').trim();
+  let filled = 0;
+  if (curPo && state.colors.length) {
+    state.colors.forEach(c => {
+      Object.keys(c.sizes).forEach(sz => {
+        const cell = c.sizes[sz];
+        if (+cell.qty > 0) {
+          const info = lookupLotInfo(curPo, c.name, sz);
+          if (info.length) { cell.lot = info.map(l => l.lot).join('/'); filled++; }
+        }
+      });
+    });
+    renderColors();
+  }
+  updateSkuDbInfo();
+  alert(`Barcodes表导入完成：SKU ${Object.keys(merged).length} 条（累计 ${Object.keys(prev).length}），LOT记录 ${lots.length} 条（仅本次会话）。导入订单或已有颜色时将自动匹配SKU和LOT号`);
+});
+
+/* ==================== 登录与事件绑定 ==================== */
+$('loginSubmit').addEventListener('click', () => {
+  if (sha256($('userAcc').value.trim()) === ACCOUNT_HASH
+      && sha256($('userPwd').value.trim()) === PASSWORD_HASH) {
+    $('loginModal').style.display = 'none';
+    $('mainPage').style.display = 'block';
+    document.body.classList.remove('login-page');
+    setTimeout(initPage, 100);
+  } else {
+    alert('账号或密码输入错误，请重新填写');
+  }
+});
+$('userAcc').addEventListener('keydown', e => { if (e.key === 'Enter') $('userPwd').focus(); });
+$('userPwd').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginSubmit').click(); });
+$('styleInput').addEventListener('input', function () { applyStyleParams(this.value); });
+$('poInput').addEventListener('input', updateBarcodePreviews);
+$('mixedEnable').addEventListener('change', function () {
+  state.mixed.enabled = this.checked;
+  $('mixedSizesWrap').style.display = this.checked ? 'inline-flex' : 'none';
+});
+$('mixedSizeCount').addEventListener('change', function () { state.mixed.sizesPerBox = +this.value || 3; });
+$('genBtn').addEventListener('click', generatePacking);
+$('exportBtn').addEventListener('click', exportExcel);
+$('labelBtn').addEventListener('click', exportLabels);
+$('genPackBtn').addEventListener('click', exportGeneralPacking);
+$('addSizeBtn').addEventListener('click', () => {
+  state.sizes.push('NewSize');
+  renderSizeBar();
+  onSizesChanged();
+});
+</script>
+</body>
+</html>
