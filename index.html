@@ -2320,14 +2320,19 @@ async function msApply() {
       if (r !== m.top || c !== m.left) slaveSet.add(r + ',' + c);
     }
   });
-  // 1) 全量读取：值 + 逐格样式
+  // 1) 全量读取：值用SheetJS原始存储值（跨PO合并格也不丢），样式/公式用ExcelJS
+  const sjsWb = XLSX.read(new Uint8Array(msMasterBuf), {type: 'array'});
+  const sjsWs = sjsWb.Sheets[ws.name] || sjsWb.Sheets[sjsWb.SheetNames[0]];
+  const vmat = XLSX.utils.sheet_to_json(sjsWs, {header: 1, defval: null});
   const orig = [];
   for (let r = 1; r <= total; r++) {
     const row = ws.getRow(r);
     const vals = [], styles = [];
     for (let c = 1; c <= MAXC; c++) {
       const cell = row.getCell(c);
-      vals.push(slaveSet.has(r + ',' + c) ? null : (cell.value ?? null));
+      let v = (vmat[r - 1] || [])[c - 1] ?? null;
+      if (c === 6 && !slaveSet.has(r + ',' + c) && cell.value && typeof cell.value === 'object' && cell.value.formula) v = cell.value; // 保留F列公式
+      vals.push(v);
       styles.push({font: cell.font, fill: cell.fill, border: cell.border, alignment: cell.alignment, numFmt: cell.numFmt});
     }
     orig.push({vals, styles});
@@ -2434,11 +2439,11 @@ async function msApply() {
     if (m.top <= 2) { addMerge(m.top, m.left, m.bottom, m.right); return; }
     if (m.left === 2 || m.left === 7 || m.left === 8 || m.left === 9) return;
     if (m.left === 3 || m.left === 6) {
-      // C/F合并：两终点都未变动才保留，否则由新块重建
-      if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top], m.left, rowMap[m.bottom], m.right);
+      // C/F合并：两终点都未变动才保留，否则由新块重建（rowMap为0基下标，行号=下标+1）
+      if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top] + 1, m.left, rowMap[m.bottom] + 1, m.right);
       return;
     }
-    if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top], m.left, rowMap[m.bottom], m.right);
+    if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top] + 1, m.left, rowMap[m.bottom] + 1, m.right);
   });
   // B列款号：连段重建（首行有值、后续空行属于同段）
   let bs = -1;
