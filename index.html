@@ -1145,6 +1145,28 @@ function refreshCartonNoCells(except) {
     el2.value = packData[k] ? packData[k].cartonNo : '';
   });
 }
+// 按 款号+颜色+尺码 自动匹配 Barcode（拼 -SGK001-PO）与 LOT，就地刷新对应格
+function msMatchCodeLot(r, idx) {
+  const styleNo = (lastHead && lastHead.style) || $('styleInput').value || '';
+  const po = (lastHead && lastHead.po) || $('poInput').value || '';
+  if (!r.color) return;
+  const sku = lookupSku(styleNo, r.color, r.size);
+  if (sku) {
+    r.barcode = formatBarcode(sku, po);
+    const bcTd = document.querySelector(`[data-bc="${idx}"]`);
+    if (bcTd) bcTd.textContent = r.barcode;
+  }
+  const lotInfo = lookupLotInfo(po, r.color, r.size);
+  if (lotInfo.length) {
+    r.lot = lotInfo.map(l => l.lot).join('/');
+    const lotTd = document.querySelector(`[data-lot="${idx}"]`);
+    if (lotTd) lotTd.textContent = r.lot;
+  }
+}
+// 当前最大箱号+1（占位行获得编号用，不重排其它行）
+function nextNo() {
+  return packData.reduce((m, p) => Math.max(m, parseInt(String(p.cartonNo).split('-').pop(), 10) || 0), 0) + 1;
+}
 // 在第 i 行后插入新箱行（默认大箱尺寸、件数0占位，填写后参与合计与导出）
 function insertRowAfter(i) {
   const head = lastHead || {po: $('poInput').value, lot: $('lotInput').value, style: $('styleInput').value, product: $('prodInput').value};
@@ -1174,32 +1196,21 @@ function onRowEdit(inp) {
     refreshCartonNoCells(idx);
     return;
   }
-  if (f === 'color' || f === 'size') {
-    r[f] = inp.value; // 文本列直接改
-    // 填颜色/改尺码后自动匹配 Barcode / LOT（与导入时同口径）
-    const styleNo = (lastHead && lastHead.style) || $('styleInput').value || '';
-    const po = (lastHead && lastHead.po) || $('poInput').value || '';
-    if (r.color) {
-      const sku = lookupSku(styleNo, r.color, r.size);
-      if (sku) {
-        r.barcode = formatBarcode(sku, po);
-        const bcTd = document.querySelector(`[data-bc="${idx}"]`);
-        if (bcTd) bcTd.textContent = r.barcode;
-      }
-      const lotInfo = lookupLotInfo(po, r.color, r.size);
-      if (lotInfo.length) {
-        r.lot = lotInfo.map(l => l.lot).join('/');
-        const lotTd = document.querySelector(`[data-lot="${idx}"]`);
-        if (lotTd) lotTd.textContent = r.lot;
-      }
-    }
-    return;
+  if (f === 'color') { r.color = inp.value; msMatchCodeLot(r, idx); return; }
+  if (f === 'size') {
+    r.size = inp.value;
+    r._unitW = state.weight[r.size] || 0; // 改尺码同步该码单件克重
+    msMatchCodeLot(r, idx);
+    // 继续走下方统一重算（NW/GW 随新克重更新）
+  } else {
+    const v = parseFloat(inp.value);
+    r[f] = isNaN(v) ? 0 : v;
+    if (f === 'qty' && !r._unitW) r._unitW = state.weight[r.size] || 0; // 占位行填件数：自动匹配克重
   }
-  const v = parseFloat(inp.value);
-  r[f] = isNaN(v) ? 0 : v;
-  if (f === 'qty' && (r.qty || 0) > 0) {
-    renumberCartons(); // 占位行填上件数后参与编号
-    refreshCartonNoCells(idx);
+  if (f === 'qty' && (r.qty || 0) > 0 && !r.cartonNo) {
+    r.cartonNo = String(nextNo()); // 占位行获得编号：取当前最大号+1，不打乱手改的箱号
+    const noInp = document.querySelector(`input[data-f="cartonNo"][data-r="${idx}"]`);
+    if (noInp) noInp.value = r.cartonNo;
   }
   // 件数改0自动删除该行（同箱多LOT合并行整箱删除），删后重排箱号
   if (f === 'qty' && (r.qty || 0) <= 0) {
