@@ -1061,7 +1061,7 @@ let lastHead = null;
 function renderResultTable() {
   const headers = ['Carton No.', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name',
     'Color', 'Size', '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height',
-    'CBM', 'NW (in Kgs)', 'GW (in Kgs)'];
+    'CBM', 'NW (in Kgs)', 'GW (in Kgs)', '＋'];
   const rowsHtml = packData.map((r, i) => {
     const cells = [r.cartonNo, r.po, r.lot, r.style, r.barcode, r.product, r.color, r.size, r.qty, r.L, r.W, r.H, r.cbm, r.nw, r.gw];
     const rowspan = !!(r._group && !r._secondary);
@@ -1072,17 +1072,17 @@ function renderResultTable() {
       if (c === 6) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="color" style="width:120px" value="${esc(v)}"></td>`;
       if (c === 7) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="size" style="width:70px" value="${esc(v)}"></td>`;
       return `<td${spanAttr(c)}>${esc(v)}</td>`;
-    }).join('')}</tr>`;
+    }).join('')}<td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
   }).join('');
   $('resultArea').innerHTML =
-    `<div class="add-btn-box"><button id="addCartonBtn" class="btn btn-soft">+ 加箱行</button><span style="margin-left:12px;font-size:12px;color:#64748b">件数改 0 自动删除该行；Color / Size 可直接修改</span></div>
+    `<div class="add-btn-box"><button id="addCartonBtn" class="btn btn-soft">+ 末尾加箱行</button><span style="margin-left:12px;font-size:12px;color:#64748b">每行末的 ＋ 可在该行后插入新箱行；件数改 0 自动删除该行；Color / Size 可直接修改；件数 0 的行不计入合计与导出</span></div>
     <div class="table-scroll"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
     + rowsHtml
     + `<tr class="total-tr">
         <td colspan="8">TOTAL 总计</td>
         <td id="totPcs"></td>
         <td colspan="3" id="totBox"></td>
-        <td id="totCbm"></td><td id="totNw"></td><td id="totGw"></td>
+        <td id="totCbm"></td><td id="totNw"></td><td id="totGw"></td><td></td>
       </tr></tbody></table></div>
     <div class="total-summary">
       <strong>整单汇总：</strong><br>
@@ -1095,15 +1095,19 @@ function renderResultTable() {
   $('resultArea').querySelectorAll('.row-edit').forEach(inp => {
     inp.addEventListener('input', () => onRowEdit(inp));
   });
-  $('addCartonBtn').addEventListener('click', addCartonRow);
+  $('resultArea').querySelectorAll('.row-add').forEach(btn => {
+    btn.addEventListener('click', () => insertRowAfter(+btn.dataset.r));
+  });
+  $('addCartonBtn').addEventListener('click', () => insertRowAfter(packData.length - 1));
   updateRowClasses();
   recalcTotals();
 }
-// 删行后重排箱号：按行顺序 1,2,3… 连续编号（ctns>1 用 "起-止" 连号，同箱多LOT行共用同一箱号）
+// 删行后重排箱号：按行顺序 1,2,3… 连续编号（ctns>1 用 "起-止" 连号，同箱多LOT行共用同一箱号；件数0的占位行不编号）
 function renumberCartons() {
   let n = 1;
   packData.forEach(r => {
     if (r._secondary) return;
+    if ((r.qty || 0) <= 0) { r.cartonNo = ''; return; }
     const ctns = r.ctns || 1;
     const no = ctns > 1 ? `${n}-${n + ctns - 1}` : String(n);
     if (r._group) {
@@ -1115,16 +1119,17 @@ function renumberCartons() {
     n += ctns;
   });
 }
-// 手动加箱行：默认大箱尺寸、件数0（填写后参与合计与导出），箱号取当前最大+1
-function addCartonRow() {
+// 在第 i 行后插入新箱行（默认大箱尺寸、件数0占位，填写后参与合计与导出）
+function insertRowAfter(i) {
   const head = lastHead || {po: $('poInput').value, lot: $('lotInput').value, style: $('styleInput').value, product: $('prodInput').value};
   const bc = getBoxConfig();
-  const maxNo = packData.reduce((m, r) => Math.max(m, parseInt(String(r.cartonNo).split('-').pop(), 10) || 0), 0);
-  packData.push({cartonNo: String(maxNo + 1), po: head.po, lot: head.lot || '', style: head.style, product: head.product,
+  const row = {cartonNo: '', po: head.po, lot: head.lot || '', style: head.style, product: head.product,
     barcode: '', color: '', size: state.sizes[0] || '', qty: 0, ctns: 1, pcsPerCtn: 0,
     L: bc.big.L, W: bc.big.W, H: bc.big.H,
     cbm: bc.big.cbm.toFixed(4), nw: '0.000', gw: (+bc.big.selfWeight).toFixed(3),
-    boxType: 'big', _unitW: 0, _selfW: bc.big.selfWeight, _mixed: false, _mixedItems: null});
+    boxType: 'big', _unitW: 0, _selfW: bc.big.selfWeight, _mixed: false, _mixedItems: null};
+  packData.splice(i + 1, 0, row);
+  renumberCartons();
   renderResultTable();
 }
 
@@ -1200,6 +1205,7 @@ function recalcTotals() {
   let pcs = 0, nw = 0, gw = 0, cbm = 0, big = 0, small = 0;
   const bigH = num('bigH', 40);
   packData.forEach(r => {
+    if (!r._secondary && (r.qty || 0) <= 0) return; // 占位空行不参与合计
     if (r._secondary) { pcs += r.qty; return; } // 同箱合并从行：只计件数，不重复计箱数/重量
     pcs += r.qty; nw += +r.nw; gw += +r.gw; cbm += +r.cbm;
     const c = r.ctns || 1;
