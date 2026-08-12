@@ -2397,6 +2397,14 @@ async function msApply() {
       }
     }
   });
+  // 列格式修正：E/F/J/K数量列强制数字格式、G出货日期列强制日期格式，避免样式串列
+  for (let i = 2; i < newM.length; i++) {
+    const r = i + 1;
+    const row = ws.getRow(r);
+    [5, 6, 10, 11].forEach(c => { if (newM[i][c - 1] != null && newM[i][c - 1] !== '') row.getCell(c).numFmt = '0'; });
+    const gv = newM[i][6];
+    if (gv != null && gv !== '' && typeof gv === 'number') row.getCell(7).numFmt = 'm/d;@';
+  }
   // 以当日日期命名导出
   const d = new Date();
   const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
