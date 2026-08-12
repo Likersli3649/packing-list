@@ -2237,28 +2237,69 @@ function msRebuildBlock(bl, o, logs, isNew) {
     + (removed.length ? `；删减颜色 ${removed.join(' / ')}` : ''));
   return rows;
 }
-function msWriteCell(ws, r0, c, v) {
-  if (v == null || v === '') return;
-  const addr = XLSX.utils.encode_cell({r: r0, c});
-  ws[addr] = typeof v === 'number' ? {t: 'n', v} : {t: 's', v: String(v)};
+// 预处理总表共享公式（ExcelJS读不了shared formula，转成普通公式）
+async function msFixShared(buf) {
+  const zip = await JSZip.loadAsync(buf);
+  const names = Object.keys(zip.files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  for (const n of names) {
+    let xml = await zip.files[n].async('string');
+    if (xml.indexOf('t="shared"') === -1) continue;
+    const masters = {};
+    const reM = /<c r="([A-Z]+)(\d+)"[^>]*><f[^>]*t="shared"[^>]*>([^<]+)<\/f>/g;
+    let m;
+    while ((m = reM.exec(xml))) {
+      const si = (/si="(\d+)"/.exec(m[0]) || [])[1];
+      if (si != null) masters[si] = {row: +m[2], f: m[3]};
+    }
+    xml = xml.replace(/<c r="([A-Z]+)(\d+)"([^>]*)><f[^>]*t="shared"[^>]*\/>/g, (mm, col, row, ca) => {
+      const si = (/si="(\d+)"/.exec(mm) || [])[1];
+      const mast = masters[si];
+      if (!mast) return '<c r="' + col + row + '"' + ca + '>';
+      const delta = (+row) - mast.row;
+      const f = mast.f.replace(/([A-Z]{1,2})(\d+)/g, (x, cc, rr) => cc + ((+rr) + delta));
+      return '<c r="' + col + row + '"' + ca + '><f>' + f + '</f>';
+    });
+    xml = xml.replace(/<f[^>]*t="shared"[^>]*>([^<]+)<\/f>/g, (mm, ft) => '<f>' + ft + '</f>');
+    zip.file(n, xml);
+  }
+  return await zip.generateAsync({type: 'arraybuffer'});
 }
 async function msApply() {
-  if (typeof XLSX === 'undefined') { alert('XLSX未加载，联网后刷新页面'); return; }
+  if (typeof ExcelJS === 'undefined' || typeof JSZip === 'undefined') { alert('组件未加载，联网后刷新页面'); return; }
   if (!msMasterBuf) { alert('请先加载订单总表！'); return; }
   if (!msOrders.length) { alert('请先上传更新表！'); return; }
-  const wb = XLSX.read(msMasterBuf, {type: 'array'});
-  const ws = wb.Sheets['2026年未出货明细'] || wb.Sheets[wb.SheetNames[0]];
-  const M = XLSX.utils.sheet_to_json(ws, {header: 1, defval: null});
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await msFixShared(msMasterBuf));
+  const ws = wb.getWorksheet('2026年未出货明细') || wb.worksheets[0];
+  const total = ws.rowCount;
+  const M = [];
+  const styles = {}; // 行号(1基) -> 1..11列单元格样式
+  for (let r = 1; r <= total; r++) {
+    const row = ws.getRow(r);
+    M.push((row.values || []).slice(1));
+    if (r >= 3) {
+      const st = [];
+      for (let c = 1; c <= 11; c++) {
+        const cell = row.getCell(c);
+        st.push({font: cell.font, fill: cell.fill, border: cell.border, alignment: cell.alignment, numFmt: cell.numFmt});
+      }
+      styles[r] = st;
+    }
+  }
   const head = M.slice(0, 2); // 标题+表头
-  const dataRows = M.slice(2).filter(row => row && row.some(v => v != null && String(v).trim() !== ''));
-  // 按PO分块（PO列有值的行开启新块）
+  const dataRows = [];
+  for (let r = 2; r < M.length; r++) {
+    const vals = M[r];
+    if (vals && vals.some(v => v != null && String(v).trim() !== '')) dataRows.push({vals, idx: r + 1});
+  }
+  // 按PO分块
   const blocks = [];
   let cur = null;
-  dataRows.forEach(row => {
-    const po = String(row[2] ?? '').trim();
+  dataRows.forEach(d => {
+    const po = String(d.vals[2] ?? '').trim();
     if (po) { cur = {po, rows: []}; blocks.push(cur); }
     if (!cur) { cur = {po: '', rows: []}; blocks.push(cur); }
-    cur.rows.push(row);
+    cur.rows.push(d);
   });
   const ordersMap = {};
   msOrders.forEach(o => { ordersMap[String(o.po).trim()] = o; });
@@ -2267,7 +2308,7 @@ async function msApply() {
   const logs = [];
   blocks.forEach(bl => {
     const o = ordersMap[bl.po];
-    if (!o) { out.push(...bl.rows); return; } // 无更新的PO原样保留
+    if (!o) { bl.rows.forEach(d => out.push({vals: d.vals, src: d.idx})); return; } // 无更新的PO原样保留
     used[bl.po] = true;
     out.push(...msRebuildBlock(bl, o, logs, false));
   });
@@ -2276,53 +2317,97 @@ async function msApply() {
     if (used[key]) return;
     out.push(...msRebuildBlock({po: key, rows: []}, o, logs, true));
   });
-  // 款号列压缩：连续同款号只在首行保留（供B列合并）
+  // 款号列压缩：连续同款号只在首行保留
   let lastSt = null;
-  out.forEach(row => {
-    if (row[1] != null) {
-      if (row[1] === lastSt) row[1] = null;
-      else lastSt = row[1];
+  out.forEach(rw => {
+    if (rw.vals[1] != null) {
+      if (rw.vals[1] === lastSt) rw.vals[1] = null;
+      else lastSt = rw.vals[1];
     }
   });
-  const newM = head.concat(out);
-  // 清空数据区旧单元格（保留标题/表头行）
-  for (const k of Object.keys(ws)) {
-    if (k[0] === '!') continue;
-    if (XLSX.utils.decode_cell(k).r >= 2) delete ws[k];
+  const newM = head.concat(out.map(rw => rw.vals));
+  // 写回数据区：逐行复制原表单元格样式（字体颜色/填充/边框），保持你的表格版式
+  for (let i = 0; i < out.length; i++) {
+    const r = i + 3;
+    const row = ws.getRow(r);
+    const vals = newM[i + 2];
+    let src = out[i].src;
+    if (!(src >= 3 && src <= total)) src = total;
+    const st = styles[src] || styles[total];
+    for (let c = 1; c <= 16; c++) {
+      const cell = row.getCell(c);
+      const v = vals[c - 1];
+      cell.value = (v == null || v === '') ? null : v;
+      if (c <= 11 && st && st[c - 1]) {
+        const s = st[c - 1];
+        if (s.font) cell.font = s.font;
+        if (s.fill) cell.fill = s.fill;
+        if (s.border) cell.border = s.border;
+        if (s.alignment) cell.alignment = s.alignment;
+        if (s.numFmt) cell.numFmt = s.numFmt;
+      }
+    }
   }
-  // 写入新矩阵（未更新行含L列以后备注，原样写回）
-  for (let i = 0; i < newM.length; i++) {
-    const row = newM[i];
-    const maxC = i >= 2 ? Math.max(11, row.length) : row.length;
-    for (let c = 0; c < maxC; c++) msWriteCell(ws, i, c, row[c] ?? null);
-  }
-  // F列总数量：按PO块写SUM公式（与原表口径一致）
+  if (out.length + 2 < total) ws.spliceRows(out.length + 3, total - out.length - 2);
+  // F列总数量：按PO块写SUM公式
   for (let i = 2; i < newM.length; i++) {
     const po = String(newM[i][2] ?? '').trim();
     if (!po) continue;
     let j = i;
     while (j + 1 < newM.length && !String(newM[j + 1][2] ?? '').trim()) j++;
-    const total = newM.slice(i, j + 1).reduce((s, r2) => s + (+r2[4] || 0), 0);
-    ws[XLSX.utils.encode_cell({r: i, c: 5})] = {t: 'n', f: i === j ? `SUM(E${i + 1})` : `SUM(E${i + 1}:E${j + 1})`, v: total};
+    const totalQty = newM.slice(i, j + 1).reduce((s, r2) => s + (+r2[4] || 0), 0);
+    const r1 = i + 1, r2 = j + 1;
+    ws.getRow(r1).getCell(6).value = {formula: r1 === r2 ? `SUM(E${r1})` : `SUM(E${r1}:E${r2})`, result: totalQty};
     i = j;
   }
-  // 合并格：保留表头区原有合并 + 重建B列款号合并
-  const oldMerges = (ws['!merges'] || []).filter(m => m.e.r <= 1);
-  const bMerges = [];
-  let runStart = -1;
-  for (let i = 2; i < newM.length; i++) {
-    if (newM[i][1] != null) {
-      if (runStart >= 0 && i - 1 > runStart) bMerges.push({s: {r: runStart, c: 1}, e: {r: i - 1, c: 1}});
-      runStart = i;
+  // 合并重建：清掉数据区B..I列旧合并，再按你的总表规则重建
+  try {
+    const drops = [];
+    Object.keys(ws._merges || {}).forEach(key => {
+      const md = (ws._merges[key] && ws._merges[key].model) || ws._merges[key];
+      if (md && md.top >= 3 && md.left >= 2 && md.left <= 9) drops.push(key);
+    });
+    drops.forEach(k => { try { ws.unMergeCells(k); } catch (e) {} });
+  } catch (e) {}
+  const MER = (r1, c1, r2, c2) => { if (r2 > r1) ws.mergeCells(r1, c1, r2, c2); };
+  // B列款号：连续同款号合并
+  let bStart = -1;
+  for (let i = 2; i <= newM.length; i++) {
+    const v = i < newM.length ? newM[i][1] : '__END__';
+    if (v != null && v !== '') { if (bStart >= 0) MER(bStart + 1, 2, i, 2); bStart = i; }
+  }
+  // C列PO、F列总数量：按PO块合并
+  let pStart = -1;
+  for (let i = 2; i <= newM.length; i++) {
+    const po = i < newM.length ? String(newM[i][2] ?? '').trim() : 'X';
+    if (po) {
+      if (pStart >= 0) { MER(pStart + 1, 3, i, 3); MER(pStart + 1, 6, i, 6); }
+      pStart = i;
     }
   }
-  if (runStart >= 0 && newM.length - 1 > runStart) bMerges.push({s: {r: runStart, c: 1}, e: {r: newM.length - 1, c: 1}});
-  ws['!merges'] = oldMerges.concat(bMerges);
-  ws['!ref'] = 'A1:' + XLSX.utils.encode_cell({r: Math.max(newM.length - 1, 2), c: 15});
+  // G/H/I列：连续同值合并（空值不合并），与你表里的出货日期/后整/状态合并方式一致
+  [6, 7, 8].forEach(col => {
+    let s = -1, lv = null;
+    for (let i = 2; i <= newM.length; i++) {
+      const raw = i < newM.length ? newM[i][col] : null;
+      const v = (raw == null || raw === '') ? null : String(raw);
+      if (!(v != null && v === lv)) {
+        if (s >= 0 && lv != null) MER(s + 1, col + 1, i, col + 1);
+        s = i; lv = v;
+      }
+    }
+  });
   // 以当日日期命名导出
   const d = new Date();
-  const ds = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  XLSX.writeFile(wb, `2026年订单${ds}更新版.xlsx`);
+  const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '2026年订单' + ds + '更新版.xlsx';
+  a.click();
+  URL.revokeObjectURL(url);
   msLog('<b>总表已更新并下载（' + ds + '）：</b><br>' + logs.join('<br>')
     + '<br><i>下载后的更新版会由本机计划任务自动移入 D:\\2026QUINCE（也可手动保存过去）。</i>');
 }
