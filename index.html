@@ -1071,6 +1071,9 @@ function renderResultTable() {
       if (CALC_COLS[c] != null) return `<td${spanAttr(c)} class="calc-cell" data-r="${i}" data-f="${CALC_COLS[c]}">${esc(v)}</td>`;
       if (c === 6) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="color" style="width:120px" value="${esc(v)}"></td>`;
       if (c === 7) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="size" style="width:70px" value="${esc(v)}"></td>`;
+      if (c === 0) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="cartonNo" style="width:64px" value="${esc(v)}"></td>`;
+      if (c === 2) return `<td${spanAttr(c)} data-lot="${i}">${esc(v)}</td>`;
+      if (c === 4) return `<td${spanAttr(c)} data-bc="${i}">${esc(v)}</td>`;
       return `<td${spanAttr(c)}>${esc(v)}</td>`;
     }).join('')}<td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
   }).join('');
@@ -1119,6 +1122,29 @@ function renumberCartons() {
     n += ctns;
   });
 }
+// 手改某行箱号后，后续行从该号自动续排（占位行跳过）
+function renumberFrom(idx) {
+  const cur = packData[idx];
+  let n = (parseInt(String(cur.cartonNo).split('-').pop(), 10) || 0) + 1;
+  for (let k = idx + 1; k < packData.length; k++) {
+    const p = packData[k];
+    if (p._secondary) continue;
+    if ((p.qty || 0) <= 0) { p.cartonNo = ''; continue; }
+    const ctns = p.ctns || 1;
+    const no = ctns > 1 ? `${n}-${n + ctns - 1}` : String(n);
+    if (p._group) packData.forEach(q => { if (q._group === p._group) q.cartonNo = no; });
+    else p.cartonNo = no;
+    n += ctns;
+  }
+}
+// 就地刷新其它行的箱号输入框（except 为正在编辑的行）
+function refreshCartonNoCells(except) {
+  document.querySelectorAll('input[data-f="cartonNo"]').forEach(el2 => {
+    const k = +el2.dataset.r;
+    if (k === except) return;
+    el2.value = packData[k] ? packData[k].cartonNo : '';
+  });
+}
 // 在第 i 行后插入新箱行（默认大箱尺寸、件数0占位，填写后参与合计与导出）
 function insertRowAfter(i) {
   const head = lastHead || {po: $('poInput').value, lot: $('lotInput').value, style: $('styleInput').value, product: $('prodInput').value};
@@ -1142,9 +1168,39 @@ function onRowEdit(inp) {
   const r = packData[idx];
   if (!r) return;
   const f = inp.dataset.f;
-  if (f === 'color' || f === 'size') { r[f] = inp.value; return; } // 文本列直接改
+  if (f === 'cartonNo') {
+    r.cartonNo = inp.value.trim(); // 箱号可手改，改后后续行自动续排
+    renumberFrom(idx);
+    refreshCartonNoCells(idx);
+    return;
+  }
+  if (f === 'color' || f === 'size') {
+    r[f] = inp.value; // 文本列直接改
+    // 填颜色/改尺码后自动匹配 Barcode / LOT（与导入时同口径）
+    const styleNo = (lastHead && lastHead.style) || $('styleInput').value || '';
+    const po = (lastHead && lastHead.po) || $('poInput').value || '';
+    if (r.color) {
+      const sku = lookupSku(styleNo, r.color, r.size);
+      if (sku) {
+        r.barcode = formatBarcode(sku, po);
+        const bcTd = document.querySelector(`[data-bc="${idx}"]`);
+        if (bcTd) bcTd.textContent = r.barcode;
+      }
+      const lotInfo = lookupLotInfo(po, r.color, r.size);
+      if (lotInfo.length) {
+        r.lot = lotInfo.map(l => l.lot).join('/');
+        const lotTd = document.querySelector(`[data-lot="${idx}"]`);
+        if (lotTd) lotTd.textContent = r.lot;
+      }
+    }
+    return;
+  }
   const v = parseFloat(inp.value);
   r[f] = isNaN(v) ? 0 : v;
+  if (f === 'qty' && (r.qty || 0) > 0) {
+    renumberCartons(); // 占位行填上件数后参与编号
+    refreshCartonNoCells(idx);
+  }
   // 件数改0自动删除该行（同箱多LOT合并行整箱删除），删后重排箱号
   if (f === 'qty' && (r.qty || 0) <= 0) {
     if (r._group) {
