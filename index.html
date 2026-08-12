@@ -1034,48 +1034,13 @@ function generatePacking() {
       });
     }
 
-    const headers = ['Carton No.', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name',
-      'Color', 'Size', '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height',
-      'CBM', 'NW (in Kgs)', 'GW (in Kgs)'];
     const totalCartons = sums.big + sums.small;
     totalSummary = {
       totalPCS: sums.pcs, totalNW: sums.nw, totalGW: sums.gw, totalCBM: sums.cbm,
       bigBoxTotal: sums.big, smallBoxTotal: sums.small, totalCarton: totalCartons
     };
-    // 数据行：件数与长/宽/高可编辑，CBM/NW/GW 为计算列，修改后自动重算；
-    // 同箱双LOT的合并行：J-O（长宽高/CBM/NW/GW）用 rowspan 跨行
-    const EDIT_COLS = {8: 'qty', 9: 'L', 10: 'W', 11: 'H'};
-    const CALC_COLS = {12: 'cbm', 13: 'nw', 14: 'gw'};
-    const rowsHtml = bodyRows.map((entry, i) => {
-      const r = entry.cells;
-      const spanAttr = (c) => (entry.rowspan && c >= 9) ? ' rowspan="2"' : '';
-      return `<tr>${r.map((v, c) => {
-        if (EDIT_COLS[c] != null) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="${EDIT_COLS[c]}" value="${esc(v)}"></td>`;
-        if (CALC_COLS[c] != null) return `<td${spanAttr(c)} class="calc-cell" data-r="${i}" data-f="${CALC_COLS[c]}">${esc(v)}</td>`;
-        return `<td${spanAttr(c)}>${esc(v)}</td>`;
-      }).join('')}</tr>`;
-    }).join('');
-    $('resultArea').innerHTML =
-      `<div class="table-scroll"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
-      + rowsHtml
-      + `<tr class="total-tr">
-          <td colspan="8">TOTAL 总计</td>
-          <td id="totPcs">${sums.pcs} PCS</td>
-          <td colspan="3" id="totBox">总箱：${sums.big}大箱+${sums.small}小箱 = ${totalCartons} CTNS</td>
-          <td id="totCbm">${sums.cbm.toFixed(4)}</td><td id="totNw">${sums.nw.toFixed(3)}</td><td id="totGw">${sums.gw.toFixed(3)}</td>
-        </tr></tbody></table></div>
-      <div class="total-summary">
-        <strong>整单汇总：</strong><br>
-        大箱：<span id="sumBig">${sums.big}</span> CTNS &nbsp;&nbsp; 小箱：<span id="sumSmall">${sums.small}</span> CTNS &nbsp;&nbsp; 总箱数：<span id="sumCartons">${totalCartons}</span> CTNS<br>
-        总件数：<span id="sumPcs">${sums.pcs}</span> PCS<br>
-        总净重NW：<span id="sumNw">${sums.nw.toFixed(3)}</span> KG<br>
-        总毛重GW：<span id="sumGw">${sums.gw.toFixed(3)}</span> KG<br>
-        总体积CBM：<span id="sumCbm">${sums.cbm.toFixed(4)}</span> CBM
-      </div>`;
-    $('resultArea').querySelectorAll('.row-edit').forEach(inp => {
-      inp.addEventListener('input', () => onRowEdit(inp));
-    });
-    updateRowClasses();
+    lastHead = head;
+    renderResultTable();
     $('destBar').style.display = 'flex';
     // 按钮开放开关：需要隐藏某个按钮时，把对应行改为 'none'；以后重新开放改回 'inline-block' 即可，
     // 功能代码（函数与事件绑定）始终完整保留，无需重写。
@@ -1088,6 +1053,65 @@ function generatePacking() {
   }
 }
 
+/* ==================== 结果表渲染 / 加箱行 ==================== */
+const EDIT_COLS = {8: 'qty', 9: 'L', 10: 'W', 11: 'H'};
+const CALC_COLS = {12: 'cbm', 13: 'nw', 14: 'gw'};
+let lastHead = null;
+// 从 packData 重渲染结果表：件数/长/宽/高可编辑，Color/Size 可直接改；件数改0自动删行；改后自动重算合计
+function renderResultTable() {
+  const headers = ['Carton No.', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name',
+    'Color', 'Size', '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height',
+    'CBM', 'NW (in Kgs)', 'GW (in Kgs)'];
+  const rowsHtml = packData.map((r, i) => {
+    const cells = [r.cartonNo, r.po, r.lot, r.style, r.barcode, r.product, r.color, r.size, r.qty, r.L, r.W, r.H, r.cbm, r.nw, r.gw];
+    const rowspan = !!(r._group && !r._secondary);
+    const spanAttr = (c) => (rowspan && c >= 9) ? ' rowspan="2"' : '';
+    return `<tr>${cells.map((v, c) => {
+      if (EDIT_COLS[c] != null) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="${EDIT_COLS[c]}" value="${esc(v)}"></td>`;
+      if (CALC_COLS[c] != null) return `<td${spanAttr(c)} class="calc-cell" data-r="${i}" data-f="${CALC_COLS[c]}">${esc(v)}</td>`;
+      if (c === 6) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="color" style="width:120px" value="${esc(v)}"></td>`;
+      if (c === 7) return `<td${spanAttr(c)}><input class="row-edit" data-r="${i}" data-f="size" style="width:70px" value="${esc(v)}"></td>`;
+      return `<td${spanAttr(c)}>${esc(v)}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+  $('resultArea').innerHTML =
+    `<div class="add-btn-box"><button id="addCartonBtn" class="btn btn-soft">+ 加箱行</button><span style="margin-left:12px;font-size:12px;color:#64748b">件数改 0 自动删除该行；Color / Size 可直接修改</span></div>
+    <div class="table-scroll"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`
+    + rowsHtml
+    + `<tr class="total-tr">
+        <td colspan="8">TOTAL 总计</td>
+        <td id="totPcs"></td>
+        <td colspan="3" id="totBox"></td>
+        <td id="totCbm"></td><td id="totNw"></td><td id="totGw"></td>
+      </tr></tbody></table></div>
+    <div class="total-summary">
+      <strong>整单汇总：</strong><br>
+      大箱：<span id="sumBig"></span> CTNS &nbsp;&nbsp; 小箱：<span id="sumSmall"></span> CTNS &nbsp;&nbsp; 总箱数：<span id="sumCartons"></span> CTNS<br>
+      总件数：<span id="sumPcs"></span> PCS<br>
+      总净重NW：<span id="sumNw"></span> KG<br>
+      总毛重GW：<span id="sumGw"></span> KG<br>
+      总体积CBM：<span id="sumCbm"></span> CBM
+    </div>`;
+  $('resultArea').querySelectorAll('.row-edit').forEach(inp => {
+    inp.addEventListener('input', () => onRowEdit(inp));
+  });
+  $('addCartonBtn').addEventListener('click', addCartonRow);
+  updateRowClasses();
+  recalcTotals();
+}
+// 手动加箱行：默认大箱尺寸、件数0（填写后参与合计与导出），箱号取当前最大+1
+function addCartonRow() {
+  const head = lastHead || {po: $('poInput').value, lot: $('lotInput').value, style: $('styleInput').value, product: $('prodInput').value};
+  const bc = getBoxConfig();
+  const maxNo = packData.reduce((m, r) => Math.max(m, parseInt(String(r.cartonNo).split('-').pop(), 10) || 0), 0);
+  packData.push({cartonNo: String(maxNo + 1), po: head.po, lot: head.lot || '', style: head.style, product: head.product,
+    barcode: '', color: '', size: state.sizes[0] || '', qty: 0, ctns: 1, pcsPerCtn: 0,
+    L: bc.big.L, W: bc.big.W, H: bc.big.H,
+    cbm: bc.big.cbm.toFixed(4), nw: '0.000', gw: (+bc.big.selfWeight).toFixed(3),
+    boxType: 'big', _unitW: 0, _selfW: bc.big.selfWeight, _mixed: false, _mixedItems: null});
+  renderResultTable();
+}
+
 // 在生成的清单里直接改某箱的件数/长/宽/高（如溢装：调高箱高、增加件数），
 // 自动重算该箱 CBM/NW/GW 与整单合计；导出 Excel 使用修改后的数值。
 // 纸箱自重随箱高切换：高度达到大箱高度 → 按大箱自重，否则按小箱自重。
@@ -1096,8 +1120,21 @@ function onRowEdit(inp) {
   const idx = +inp.dataset.r;
   const r = packData[idx];
   if (!r) return;
+  const f = inp.dataset.f;
+  if (f === 'color' || f === 'size') { r[f] = inp.value; return; } // 文本列直接改
   const v = parseFloat(inp.value);
-  r[inp.dataset.f] = isNaN(v) ? 0 : v;
+  r[f] = isNaN(v) ? 0 : v;
+  // 件数改0自动删除该行（同箱多LOT合并行整箱删除）
+  if (f === 'qty' && (r.qty || 0) <= 0) {
+    if (r._group) {
+      const g = r._group;
+      for (let k = packData.length - 1; k >= 0; k--) if (packData[k]._group === g) packData.splice(k, 1);
+    } else {
+      packData.splice(idx, 1);
+    }
+    renderResultTable();
+    return;
+  }
   const bigH = num('bigH', 40);
   if (r._group) {
     // 同箱多LOT合并行：CBM/NW/GW 只记在主行，按整箱总件数重算
@@ -1629,7 +1666,7 @@ async function exportGeneralPacking() {
 
   // ===== 装箱明细 =====
   const colorGroup = {}; let grp = 0; const colorOrder = [];
-  packData.forEach(pd => { if (!colorGroup[pd.color]) { grp++; colorGroup[pd.color] = grp; if (!colorOrder.includes(pd.color)) colorOrder.push(pd.color); } });
+  packData.forEach(pd => { if (!pd.color) return; if (!colorGroup[pd.color]) { grp++; colorGroup[pd.color] = grp; if (!colorOrder.includes(pd.color)) colorOrder.push(pd.color); } });
   packData.forEach(pd => {
     let s = pd.cartonNo, e = pd.cartonNo, ctns = pd.ctns || 1;
     if (String(pd.cartonNo).indexOf('-') !== -1) { const p = String(pd.cartonNo).split('-'); s = p[0]; e = p[1]; }
