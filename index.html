@@ -1099,6 +1099,22 @@ function renderResultTable() {
   updateRowClasses();
   recalcTotals();
 }
+// 删行后重排箱号：按行顺序 1,2,3… 连续编号（ctns>1 用 "起-止" 连号，同箱多LOT行共用同一箱号）
+function renumberCartons() {
+  let n = 1;
+  packData.forEach(r => {
+    if (r._secondary) return;
+    const ctns = r.ctns || 1;
+    const no = ctns > 1 ? `${n}-${n + ctns - 1}` : String(n);
+    if (r._group) {
+      const g = r._group;
+      packData.forEach(p => { if (p._group === g) p.cartonNo = no; });
+    } else {
+      r.cartonNo = no;
+    }
+    n += ctns;
+  });
+}
 // 手动加箱行：默认大箱尺寸、件数0（填写后参与合计与导出），箱号取当前最大+1
 function addCartonRow() {
   const head = lastHead || {po: $('poInput').value, lot: $('lotInput').value, style: $('styleInput').value, product: $('prodInput').value};
@@ -1124,7 +1140,7 @@ function onRowEdit(inp) {
   if (f === 'color' || f === 'size') { r[f] = inp.value; return; } // 文本列直接改
   const v = parseFloat(inp.value);
   r[f] = isNaN(v) ? 0 : v;
-  // 件数改0自动删除该行（同箱多LOT合并行整箱删除）
+  // 件数改0自动删除该行（同箱多LOT合并行整箱删除），删后重排箱号
   if (f === 'qty' && (r.qty || 0) <= 0) {
     if (r._group) {
       const g = r._group;
@@ -1132,6 +1148,7 @@ function onRowEdit(inp) {
     } else {
       packData.splice(idx, 1);
     }
+    renumberCartons();
     renderResultTable();
     return;
   }
