@@ -2392,7 +2392,7 @@ async function msFixShared(buf) {
   return await zip.generateAsync({type: 'arraybuffer'});
 }
 
-// ===== 总表同步 v3：全量读取 → 矩阵级块替换 → 全量写回（精确重建合并格） =====
+// ===== 总表同步 v4：零打扰原位更新 + 在最后一行数据后追加（不重做整表） =====
 async function msApply() {
   if (typeof ExcelJS === 'undefined' || typeof JSZip === 'undefined') { alert('组件未加载，联网后刷新页面'); return; }
   if (!msMasterBuf) { alert('请先加载订单总表！'); return; }
@@ -2401,176 +2401,182 @@ async function msApply() {
   await wb.xlsx.load(await msFixShared(msMasterBuf));
   const ws = wb.getWorksheet('2026年未出货明细') || wb.worksheets[0];
   const total = ws.rowCount;
-  const MAXC = 16;
-  // 合并格清单（提前捕获）+ 从格集合：ExcelJS从格.value会返回主格值，读取时必须置空，否则PO块误判
-  const origMerges = Object.keys(ws._merges || {}).map(k => { const m = ws._merges[k].model || ws._merges[k]; return {top: m.top, left: m.left, bottom: m.bottom, right: m.right}; });
-  const slaveSet = new Set();
-  origMerges.forEach(m => {
-    for (let r = m.top; r <= m.bottom; r++) for (let c = m.left; c <= m.right; c++) {
-      if (r !== m.top || c !== m.left) slaveSet.add(r + ',' + c);
-    }
-  });
-  // 1) 全量读取：值用SheetJS原始存储值（跨PO合并格也不丢），样式/公式用ExcelJS
   const sjsWb = XLSX.read(new Uint8Array(msMasterBuf), {type: 'array'});
   const sjsWs = sjsWb.Sheets[ws.name] || sjsWb.Sheets[sjsWb.SheetNames[0]];
-  const vmat = XLSX.utils.sheet_to_json(sjsWs, {header: 1, defval: null});
-  const orig = [];
-  for (let r = 1; r <= total; r++) {
-    const row = ws.getRow(r);
-    const vals = [], styles = [];
-    for (let c = 1; c <= MAXC; c++) {
-      const cell = row.getCell(c);
-      let v = (vmat[r - 1] || [])[c - 1] ?? null;
-      if (c === 6 && !slaveSet.has(r + ',' + c) && cell.value && typeof cell.value === 'object' && cell.value.formula) v = cell.value; // 保留F列公式
-      vals.push(v);
-      styles.push({font: cell.font, fill: cell.fill, border: cell.border, alignment: cell.alignment, numFmt: cell.numFmt});
+  const vmat = XLSX.utils.sheet_to_json(sjsWs, {header: 1, defval: null, blankrows: true});
+  const V = r => (vmat[r - 1] || []);
+  const logs = [];
+  // ---- 合并格局部维护 ----
+  const getMerges = () => Object.keys(ws._merges || {}).map(k => ({k, m: (ws._merges[k].model || ws._merges[k])}));
+  const shiftMerges = (p, delta) => {
+    getMerges().forEach(({k, m}) => {
+      if (m.bottom < p) return;
+      let nt = m.top, nb = m.bottom;
+      if (m.top >= p) { nt += delta; nb += delta; } else { nb += delta; }
+      try { ws.unMergeCells(k); if (nb > nt || m.right > m.left) ws.mergeCells(nt, m.left, nb, m.right); } catch (e) {}
+    });
+  };
+  const extendMerge = (row, col, ext) => {
+    const hit = getMerges().find(x => x.m.left === col && x.m.right === col && x.m.top <= row && x.m.bottom >= row);
+    if (hit) { try { ws.unMergeCells(hit.k); ws.mergeCells(hit.m.top, col, hit.m.bottom + ext, col); } catch (e) {} return true; }
+    return false;
+  };
+  const mergeRange = (t, c, b) => { if (b > t) { try { ws.mergeCells(t, c, b, c); } catch (e) {} } };
+  // ---- 样式模板：同款号取已有行样式（字体颜色随款号），强制居中 ----
+  const styleOfRow = r => {
+    const st = [];
+    for (let c = 1; c <= 11; c++) {
+      const cell = ws.getRow(r).getCell(c);
+      st.push({font: cell.font, fill: cell.fill, border: cell.border, alignment: cell.alignment, numFmt: cell.numFmt});
     }
-    orig.push({vals, styles});
+    return st;
+  };
+  const applyStyle = (r, st) => {
+    for (let c = 1; c <= 11; c++) {
+      const cell = ws.getRow(r).getCell(c);
+      const s = st[c - 1];
+      if (!s) continue;
+      if (s.font) cell.font = s.font;
+      if (s.border) cell.border = s.border;
+      if (s.fill) cell.fill = s.fill;
+      cell.alignment = Object.assign({}, s.alignment || {}, {horizontal: 'center', vertical: 'middle'});
+      if (s.numFmt) cell.numFmt = s.numFmt;
+    }
+  };
+  const styleTpl = {};
+  for (let r = 3; r <= total; r++) {
+    const b = String(V(r)[1] ?? '').trim();
+    if (b) styleTpl[b] = styleOfRow(r); // 后覆盖前：取最近的同款行样式（字体颜色随块）
   }
-  const colProps = [];
-  for (let c = 1; c <= 20; c++) { const col = ws.getColumn(c); colProps.push({width: col.width, hidden: col.hidden}); }
-  // 2) 原表PO块
+  // ---- 块扫描 ----
   const blocks = [];
   let cur = null;
   for (let r = 3; r <= total; r++) {
-    const po = String(orig[r - 1].vals[2] ?? '').trim();
-    const color = String(orig[r - 1].vals[3] ?? '').trim();
+    const po = String(V(r)[2] ?? '').trim();
+    const d = String(V(r)[3] ?? '').trim();
+    if (d === '合计') { cur = null; continue; } // 合计行终止块，绝不并入
     if (po) { cur = {po, top: r, bottom: r, colors: []}; blocks.push(cur); }
-    if (cur) { cur.bottom = r; if (color) cur.colors.push({r, color}); }
+    if (cur && d) { cur.colors.push({r, color: d}); cur.bottom = r; }
   }
-  // 3) 矩阵级构建输出行
-  const outRows = [orig[0], orig[1]];
-  const rowMap = new Array(total + 1).fill(-1);
-  const newBlocks = [];
-  const logs = [];
-  const mkRow = (vals, styles) => ({vals, styles});
-  const buildNewRows = (o, oldTopB, oldGHI, tplStyles) => {
-    const per = o.colors.map(c => {
-      const qty = Object.values(c.qty).reduce((a, b) => a + (+b || 0), 0);
-      return {c, qty, est: estimatePack(o.style, c.qty), zhKey: c.zh || colorZH(c.color)};
+  let lastDataRow = 2;
+  for (let r = 3; r <= total; r++) {
+    const c = String(V(r)[2] ?? '').trim();
+    const d = String(V(r)[3] ?? '').trim();
+    if (c || (d && d !== '合计')) lastDataRow = r;
+  }
+  const fallbackTpl = styleOfRow(lastDataRow);
+  const qtyOf = c => Object.values(c.qty).reduce((a, x) => a + (+x || 0), 0);
+  let drift = 0; // 原位增删行造成的行号漂移
+  // ---- 1) 已有PO：原位更新（自下而上，避免行号失效） ----
+  for (let bi = blocks.length - 1; bi >= 0; bi--) {
+    const b = blocks[bi];
+    const o = msOrders.find(x => String(x.po).trim() === b.po);
+    if (!o) continue;
+    const t = b.top + drift;
+    // 数量原位写
+    b.colors.forEach(cc => {
+      const nc = o.colors.find(c2 => (c2.zh || colorZH(c2.color)) === cc.color || c2.color === cc.color);
+      if (nc) ws.getRow(cc.r + drift).getCell(5).value = qtyOf(nc);
     });
-    const totalQty = per.reduce((a, x) => a + x.qty, 0);
-    const totBoxes = per.reduce((a, x) => a + x.est.boxes, 0);
-    const totCbm = Math.round(per.reduce((a, x) => a + x.est.cbm, 0) * 1000) / 1000;
-    return per.map((x, i) => {
-      const vals = new Array(MAXC).fill(null);
-      const ghi = oldGHI[x.zhKey] || oldGHI[x.c.color] || [null, null, null];
-      vals[1] = i === 0 ? oldTopB : null;
-      vals[2] = i === 0 ? String(o.po).trim() : null;
-      vals[3] = x.zhKey || x.c.color;
-      vals[4] = x.qty;
-      vals[5] = i === 0 ? totalQty : null;
-      vals[6] = ghi[0]; vals[7] = ghi[1]; vals[8] = ghi[2];
-      vals[9] = i === 0 ? totBoxes : null;
-      vals[10] = i === 0 ? totCbm : null;
-      const st = tplStyles.map(s => Object.assign({}, s));
-      return mkRow(vals, st);
+    // 删颜色行（自下而上）
+    const zhSet = o.colors.map(c2 => c2.zh || colorZH(c2.color));
+    b.colors.filter(cc => !zhSet.includes(cc.color) && !o.colors.some(c2 => c2.color === cc.color))
+      .map(cc => cc.r).sort((a, z) => z - a).forEach(r => {
+        ws.spliceRows(r + drift, 1);
+        shiftMerges(r + drift, -1);
+        drift -= 1;
+      });
+    // 加颜色行：块尾插入
+    const adds = o.colors.filter(c2 => !b.colors.some(cc => cc.color === (c2.zh || colorZH(c2.color)) || cc.color === c2.color));
+    const tplB = styleTpl[String(V(b.top)[1] ?? '').trim()] || styleOfRow(b.top);
+    let bottom = b.bottom;
+    adds.forEach(c2 => {
+      ws.spliceRows(bottom + drift + 1, 0, [null, null, null, c2.zh || colorZH(c2.color), qtyOf(c2)]);
+      shiftMerges(bottom + drift + 1, 1);
+      applyStyle(bottom + drift + 1, tplB);
+      extendMerge(t, 2, 1); extendMerge(t, 3, 1); extendMerge(t, 6, 1);
+      ws.getRow(bottom + drift + 1).getCell(5).numFmt = '0';
+      bottom++; drift += 1;
     });
-  };
-  const appended = [];
-  const blockByTop = {};
-  blocks.forEach(b => { blockByTop[b.top] = b; });
-  let rr = 3;
-  while (rr <= total) {
-    const b = blockByTop[rr];
-    const o = b && msOrders.find(x => String(x.po).trim() === b.po);
-    if (!b || !o) { rowMap[rr] = outRows.length; outRows.push(orig[rr - 1]); rr++; continue; }
-    const oldTopB = orig[b.top - 1].vals[1];
-    const oldGHI = {};
-    b.colors.forEach(cc => { const v = orig[cc.r - 1].vals; oldGHI[cc.color] = [v[6], v[7], v[8]]; });
-    const tpl = orig[b.top - 1].styles;
-    const rows = buildNewRows(o, oldTopB, oldGHI, tpl);
-    const outTop = outRows.length;
-    rows.forEach(rw => outRows.push(rw));
-    newBlocks.push({top: outTop + 1, bottom: outTop + rows.length});
-    const newZh = o.colors.map(c => c.zh || colorZH(c.color));
-    const removed = b.colors.map(cc => cc.color).filter(cn => !newZh.includes(cn));
-    const tq = o.colors.reduce((s, c) => s + Object.values(c.qty).reduce((a, b2) => a + (+b2 || 0), 0), 0);
-    logs.push(`更新 PO ${b.po}（${o.style || ''}）：颜色 ${o.colors.length} 个、共 ${tq} 件` + (removed.length ? `；删减 ${removed.join(' / ')}` : ''));
-    rr = b.bottom + 1;
+    // F公式 + J/K
+    const totalQty = o.colors.reduce((s, c2) => s + qtyOf(c2), 0);
+    const per = o.colors.map(c2 => ({q: qtyOf(c2), est: estimatePack(o.style, c2.qty)}));
+    const totBoxes = per.reduce((s, x) => s + x.est.boxes, 0);
+    const totCbm = Math.round(per.reduce((s, x) => s + x.est.cbm, 0) * 1000) / 1000;
+    const bb = bottom + drift;
+    ws.getRow(t).getCell(6).value = {formula: bb > t ? `SUM(E${t}:E${bb})` : `SUM(E${t})`, result: totalQty};
+    ws.getRow(t).getCell(10).value = totBoxes;
+    ws.getRow(t).getCell(11).value = totCbm;
+    ws.getRow(t).getCell(10).numFmt = '0';
+    const removed = b.colors.map(cc => cc.color).filter(cn => !zhSet.includes(cn));
+    logs.push(`更新 PO ${b.po}（${o.style || ''}）：颜色 ${o.colors.length} 个、共 ${totalQty} 件` + (removed.length ? `；删减 ${removed.join(' / ')}` : ''));
   }
-  msOrders.forEach(o => {
-    const key = String(o.po).trim();
-    if (blocks.some(b => b.po === key)) return;
-    const tpl = orig[total - 1].styles;
-    const rows = buildNewRows(o, o.style, {}, tpl);
-    const outTop = outRows.length;
-    rows.forEach(rw => outRows.push(rw));
-    newBlocks.push({top: outTop + 1, bottom: outTop + rows.length, style: o.style});
-    logs.push(`新增 PO ${key}（${o.style || ''}）：颜色 ${o.colors.length} 个`);
-  });
-  // 4) 写回：清合并 → 调行数 → 写值+样式 → 列属性 → 精确重建合并
-  Object.keys(ws._merges || {}).slice().forEach(k => { try { ws.unMergeCells(k); } catch (e) {} });
-  if (outRows.length < total) ws.spliceRows(outRows.length + 1, total - outRows.length);
-  for (let i = 0; i < outRows.length; i++) {
-    const row = ws.getRow(i + 1);
-    const ent = outRows[i];
-    for (let c = 1; c <= MAXC; c++) {
-      const cell = row.getCell(c);
-      cell.value = ent.vals[c - 1];
-      const s = ent.styles[c - 1];
-      if (s) {
-        if (s.font) cell.font = s.font;
-        if (s.fill) cell.fill = s.fill;
-        if (s.border) cell.border = s.border;
-        if (s.alignment) cell.alignment = s.alignment;
-        if (s.numFmt) cell.numFmt = s.numFmt;
+  // ---- 2) 新PO：追加到最后一行数据之后（合计行/空行之前），不重做整表 ----
+  const newOrders = msOrders.filter(o => !blocks.some(b => b.po === String(o.po).trim()));
+  if (newOrders.length) {
+    const insertAt = lastDataRow + drift + 1;
+    const rowArrays = [];
+    const newBlocks = [];
+    newOrders.forEach(o => {
+      const totalQty = o.colors.reduce((s, c) => s + qtyOf(c), 0);
+      const per = o.colors.map(c => ({c, q: qtyOf(c), est: estimatePack(o.style, c.qty)}));
+      const totBoxes = per.reduce((s, x) => s + x.est.boxes, 0);
+      const totCbm = Math.round(per.reduce((s, x) => s + x.est.cbm, 0) * 1000) / 1000;
+      const start = rowArrays.length;
+      per.forEach((x, i) => {
+        const vals = new Array(11).fill(null);
+        vals[1] = i === 0 ? o.style : null;
+        vals[2] = i === 0 ? String(o.po).trim() : null;
+        vals[3] = x.c.zh || colorZH(x.c.color);
+        vals[4] = x.q;
+        vals[5] = i === 0 ? totalQty : null;
+        vals[9] = i === 0 ? totBoxes : null;
+        vals[10] = i === 0 ? totCbm : null;
+        rowArrays.push(vals);
+      });
+      newBlocks.push({style: o.style, po: String(o.po).trim(), start, end: rowArrays.length - 1, totalQty});
+      logs.push(`新增 PO ${String(o.po).trim()}（${o.style || ''}）：颜色 ${o.colors.length} 个、共 ${totalQty} 件`);
+    });
+    for (let k = rowArrays.length - 1; k >= 0; k--) ws.spliceRows(insertAt, 0, rowArrays[k]);
+    shiftMerges(insertAt, rowArrays.length);
+    const base = insertAt;
+    // 样式（同款号字体颜色+居中）+ 块内合并 C/F/G/I
+    newBlocks.forEach(nb => {
+      const tpl = styleTpl[nb.style] || fallbackTpl;
+      for (let r = base + nb.start; r <= base + nb.end; r++) {
+        applyStyle(r, tpl);
+        ws.getRow(r).getCell(5).numFmt = '0';
       }
-    }
-  }
-  for (let c = 1; c <= 20; c++) {
-    const col = ws.getColumn(c);
-    if (colProps[c - 1]) { if (colProps[c - 1].width) col.width = colProps[c - 1].width; col.hidden = !!colProps[c - 1].hidden; }
-  }
-  ws.getColumn(1).hidden = true; // A列保持隐藏
-  const addMerge = (t, l, b, r) => { if (b > t || r > l) { try { ws.mergeCells(t, l, b, r); } catch (e) {} } };
-  // 原合并：表头保留；B/G/H/I列交给连段重建；与被替换块相交的丢弃；其余按行映射保留
-  origMerges.forEach(m => {
-    if (m.top <= 2) { addMerge(m.top, m.left, m.bottom, m.right); return; }
-    if (m.left === 2 || m.left === 7 || m.left === 8 || m.left === 9) return;
-    if (m.left === 3 || m.left === 6) {
-      // C/F合并：两终点都未变动才保留，否则由新块重建（rowMap为0基下标，行号=下标+1）
-      if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top] + 1, m.left, rowMap[m.bottom] + 1, m.right);
-      return;
-    }
-    if (rowMap[m.top] !== -1 && rowMap[m.bottom] !== -1) addMerge(rowMap[m.top] + 1, m.left, rowMap[m.bottom] + 1, m.right);
-  });
-  // B列款号：连段重建（首行有值、后续空行属于同段）
-  let bs = -1;
-  for (let i = 2; i <= outRows.length; i++) {
-    const v = i < outRows.length ? outRows[i].vals[1] : null;
-    const key = (v == null || v === '') ? null : String(v);
-    if (key != null) {
-      if (bs >= 0) addMerge(bs + 1, 2, i, 2);
-      bs = i;
-    }
-  }
-  if (bs >= 0) addMerge(bs + 1, 2, outRows.length, 2);
-  // G/H/I列：连续同值连段重建
-  [7, 8, 9].forEach(c => {
-    let s = -1, lv = null;
-    for (let i = 2; i <= outRows.length; i++) {
-      const v = i < outRows.length ? outRows[i].vals[c - 1] : null;
-      const key = (v == null || v === '') ? null : String(v);
-      if (!(key != null && key === lv)) {
-        if (s >= 0 && lv != null) addMerge(s + 1, c, i, c);
-        s = i; lv = key;
+      const t = base + nb.start, bb = base + nb.end;
+      ws.getRow(t).getCell(6).value = {formula: bb > t ? `SUM(E${t}:E${bb})` : `SUM(E${t})`, result: nb.totalQty};
+      ws.getRow(t).getCell(10).numFmt = '0';
+      if (bb > t) [3, 6, 7, 9].forEach(c => mergeRange(t, c, bb));
+    });
+    // B/H列：同款号跨PO连段合并（B可向上衔接已有合并）
+    let runTop = -1, runBottom = -1, runStyle = null;
+    const flushRun = (col) => { if (runTop >= 0 && runBottom > runTop) mergeRange(runTop, col, runBottom); };
+    const runs = [];
+    newBlocks.forEach(nb => {
+      const t = base + nb.start, bb = base + nb.end;
+      if (nb.style && nb.style === runStyle) { runBottom = bb; }
+      else { if (runTop >= 0) runs.push({top: runTop, bottom: runBottom, style: runStyle}); runTop = t; runBottom = bb; runStyle = nb.style; }
+    });
+    if (runTop >= 0) runs.push({top: runTop, bottom: runBottom, style: runStyle});
+    runs.forEach(run => {
+      // B：插入点上方同款号 → 向上衔接已有合并；上方未合并也把该行并入新合并
+      let bTop = run.top;
+      const aboveSame = lastDataRow >= 3 && String(V(lastDataRow)[1] ?? '').trim() === run.style;
+      if (run.top === base && aboveSame) {
+        if (!extendMerge(lastDataRow, 2, run.bottom - run.top + 1)) bTop = lastDataRow;
       }
-    }
-  });
-  // 新块：C/F合并 + F公式 + 数字/日期格式
-  newBlocks.forEach(nb => {
-    const top = nb.top, bottom = nb.bottom;
-    ws.getRow(top).getCell(6).value = {formula: bottom > top ? `SUM(E${top}:E${bottom})` : `SUM(E${top})`, result: outRows[top - 1].vals[5]};
-    if (bottom > top) { addMerge(top, 3, bottom, 3); addMerge(top, 6, bottom, 6); }
-    for (let r = top; r <= bottom; r++) {
-      const row = ws.getRow(r);
-      [5, 6, 10, 11].forEach(c => { const v = row.getCell(c).value; if (v != null && v !== '') row.getCell(c).numFmt = '0'; });
-      const gv = row.getCell(7).value;
-      if (gv != null && (typeof gv === 'number' || gv instanceof Date)) row.getCell(7).numFmt = 'm/d;@';
-    }
-  });
-  // 5) 以当日日期命名导出
+      if (bTop >= 0 && run.bottom > bTop) mergeRange(bTop, 2, run.bottom);
+      // H：同款号跨PO合并（上方同款一并并入）
+      const hTop = (run.top === base && aboveSame) ? lastDataRow : run.top;
+      if (run.bottom > hTop) mergeRange(hTop, 8, run.bottom);
+    });
+  }
+  try { ws.getColumn(1).hidden = true; } catch (e) {} // A列保持隐藏
+  // ---- 导出 ----
   const d = new Date();
   const ds = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
   const buffer = await wb.xlsx.writeBuffer();
@@ -2582,7 +2588,7 @@ async function msApply() {
   a.click();
   URL.revokeObjectURL(url);
   msLog('<b>总表已更新并下载（' + ds + '）：</b><br>' + logs.join('<br>')
-    + '<br><i>下载后的更新版会由本机计划任务自动移入 D:\\2026QUINCE（也可手动保存过去）。</i>');
+    + '<br><i>原有行未改动；新PO追加在最后一行数据之后。下载版会由本机计划任务自动移入 D:\\2026QUINCE。</i>');
 }
 
 /* ==================== 登录与事件绑定 ==================== */
