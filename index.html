@@ -2480,37 +2480,38 @@ async function msApply() {
       && o.colors.every(c2 => b.colors.some(cc => cc.color === (c2.zh || colorZH(c2.color)) || cc.color === c2.color));
     const qtySame = setSame && b.colors.every(cc => {
       const m = matchIn(cc);
-      const cur = Math.round(+((ws.getRow(cc.r + drift).getCell(5).value) || 0));
+      const cur = Math.round(+((ws.getRow(cc.r).getCell(5).value) || 0));
       return m && Math.round(qtyOf(m)) === cur;
     });
     if (setSame && qtySame) {
       fails.push(`导入失败：PO ${b.po} 有相同订单，颜色/件数未作更改`);
       continue;
     }
-    const t = b.top + drift;
-    // 数量原位写
+    const t = b.top; // 自下而上处理：当前块行号仍为原始坐标，不加drift
+    // 1) 数量原位写（先写，原始行号有效）
     b.colors.forEach(cc => {
       const nc = o.colors.find(c2 => (c2.zh || colorZH(c2.color)) === cc.color || c2.color === cc.color);
-      if (nc) ws.getRow(cc.r + drift).getCell(5).value = qtyOf(nc);
+      if (nc) ws.getRow(cc.r).getCell(5).value = qtyOf(nc);
     });
-    // 删颜色行（自下而上）
+    // 2) 删颜色行（块内自下而上）
     const zhSet = o.colors.map(c2 => c2.zh || colorZH(c2.color));
-    b.colors.filter(cc => !zhSet.includes(cc.color) && !o.colors.some(c2 => c2.color === cc.color))
-      .map(cc => cc.r).sort((a, z) => z - a).forEach(r => {
-        ws.spliceRows(r + drift, 1);
-        shiftMerges(r + drift, -1);
-        drift -= 1;
-      });
-    // 加颜色行：块尾插入
+    const dels = b.colors.filter(cc => !zhSet.includes(cc.color) && !o.colors.some(c2 => c2.color === cc.color))
+      .map(cc => cc.r).sort((a, z) => z - a);
+    dels.forEach(r => {
+      ws.spliceRows(r, 1);
+      shiftMerges(r, -1);
+      drift -= 1;
+    });
+    // 3) 加颜色行：块尾插入（bottom已扣除块内删除）
     const adds = o.colors.filter(c2 => !b.colors.some(cc => cc.color === (c2.zh || colorZH(c2.color)) || cc.color === c2.color));
     const tplB = styleTpl[String(V(b.top)[1] ?? '').trim()] || styleOfRow(b.top);
-    let bottom = b.bottom;
+    let bottom = b.bottom - dels.length;
     adds.forEach(c2 => {
-      ws.spliceRows(bottom + drift + 1, 0, [null, null, null, c2.zh || colorZH(c2.color), qtyOf(c2)]);
-      shiftMerges(bottom + drift + 1, 1);
-      applyStyle(bottom + drift + 1, tplB);
+      ws.spliceRows(bottom + 1, 0, [null, null, null, c2.zh || colorZH(c2.color), qtyOf(c2)]);
+      shiftMerges(bottom + 1, 1);
+      applyStyle(bottom + 1, tplB);
       extendMerge(t, 2, 1); extendMerge(t, 3, 1); extendMerge(t, 6, 1);
-      ws.getRow(bottom + drift + 1).getCell(5).numFmt = '0';
+      ws.getRow(bottom + 1).getCell(5).numFmt = '0';
       bottom++; drift += 1;
     });
     // F公式 + J/K
@@ -2518,7 +2519,7 @@ async function msApply() {
     const per = o.colors.map(c2 => ({q: qtyOf(c2), est: estimatePack(o.style, c2.qty)}));
     const totBoxes = per.reduce((s, x) => s + x.est.boxes, 0);
     const totCbm = Math.round(per.reduce((s, x) => s + x.est.cbm, 0) * 1000) / 1000;
-    const bb = bottom + drift;
+    const bb = bottom;
     ws.getRow(t).getCell(6).value = {formula: bb > t ? `SUM(E${t}:E${bb})` : `SUM(E${t})`, result: totalQty};
     ws.getRow(t).getCell(10).value = totBoxes;
     ws.getRow(t).getCell(11).value = totCbm;
