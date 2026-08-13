@@ -2468,10 +2468,25 @@ async function msApply() {
   const qtyOf = c => Object.values(c.qty).reduce((a, x) => a + (+x || 0), 0);
   let drift = 0; // 原位增删行造成的行号漂移
   // ---- 1) 已有PO：原位更新（自下而上，避免行号失效） ----
+  const fails = [];
   for (let bi = blocks.length - 1; bi >= 0; bi--) {
     const b = blocks[bi];
     const o = msOrders.find(x => String(x.po).trim() === b.po);
     if (!o) continue;
+    // 相同订单校验：颜色与件数都未变化 → 导入失败提示，不作任何修改
+    const matchIn = cc => o.colors.find(c2 => (c2.zh || colorZH(c2.color)) === cc.color || c2.color === cc.color);
+    const setSame = b.colors.length === o.colors.length
+      && b.colors.every(cc => matchIn(cc))
+      && o.colors.every(c2 => b.colors.some(cc => cc.color === (c2.zh || colorZH(c2.color)) || cc.color === c2.color));
+    const qtySame = setSame && b.colors.every(cc => {
+      const m = matchIn(cc);
+      const cur = Math.round(+((ws.getRow(cc.r + drift).getCell(5).value) || 0));
+      return m && Math.round(qtyOf(m)) === cur;
+    });
+    if (setSame && qtySame) {
+      fails.push(`导入失败：PO ${b.po} 有相同订单，颜色/件数未作更改`);
+      continue;
+    }
     const t = b.top + drift;
     // 数量原位写
     b.colors.forEach(cc => {
@@ -2614,8 +2629,11 @@ async function msApply() {
   a.download = '2026年订单' + ds + '更新版.xlsx';
   a.click();
   URL.revokeObjectURL(url);
-  msLog('<b>总表已更新并下载（' + ds + '）：</b><br>' + logs.join('<br>')
+  msLog('<b>总表已更新并下载（' + ds + '）：</b><br>'
+    + (fails.length ? '<span style="color:#c00">' + fails.join('<br>') + '</span><br>' : '')
+    + logs.join('<br>')
     + '<br><i>原有行未改动；新PO追加在最后一行数据之后。下载版会由本机计划任务自动移入 D:\\2026QUINCE。</i>');
+  if (fails.length) alert(fails.join('\n'));
 }
 
 /* ==================== 登录与事件绑定 ==================== */
