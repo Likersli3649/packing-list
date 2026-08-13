@@ -2579,7 +2579,8 @@ async function msApply() {
     newBlocks.forEach(nb => {
       const tpl = styleTpl[nb.style] || fallbackTpl;
       const tplColor = colorOfTpl(tpl);
-      const plain = !tplColor || tplColor === JSON.stringify({argb: 'FF000000'});
+      let plain = !tplColor;
+      if (!plain) { try { const o = JSON.parse(tplColor); plain = (o.argb ? o.argb === 'FF000000' : true) || o.theme === 0 || o.theme === 1; } catch (e) { plain = true; } }
       let override = null;
       if (!styleTpl[nb.style] || plain) {
         override = newStyleColor[nb.style] || (newStyleColor[nb.style] = pickColor());
@@ -2589,7 +2590,9 @@ async function msApply() {
             if (String(V(r)[1] ?? '').trim() === nb.style) {
               for (let c = 1; c <= 11; c++) {
                 const cell = ws.getRow(r).getCell(c);
-                cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
+                const fc = cell.font && cell.font.color;
+                const rowPlain = !fc || fc.theme === 0 || fc.theme === 1 || fc.argb === 'FF000000';
+                if (rowPlain) cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
               }
             }
           }
