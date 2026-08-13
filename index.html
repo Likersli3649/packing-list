@@ -2578,9 +2578,22 @@ async function msApply() {
     };
     newBlocks.forEach(nb => {
       const tpl = styleTpl[nb.style] || fallbackTpl;
+      const tplColor = colorOfTpl(tpl);
+      const plain = !tplColor || tplColor === JSON.stringify({argb: 'FF000000'});
       let override = null;
-      if (!styleTpl[nb.style]) {
+      if (!styleTpl[nb.style] || plain) {
         override = newStyleColor[nb.style] || (newStyleColor[nb.style] = pickColor());
+        // 该款在表里已存在的黑色行一并染成新色（同款同色）
+        if (styleTpl[nb.style]) {
+          for (let r = 3; r <= total; r++) {
+            if (String(V(r)[1] ?? '').trim() === nb.style) {
+              for (let c = 1; c <= 11; c++) {
+                const cell = ws.getRow(r).getCell(c);
+                cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
+              }
+            }
+          }
+        }
       }
       for (let r = base + nb.start; r <= base + nb.end; r++) {
         applyStyle(r, tpl);
