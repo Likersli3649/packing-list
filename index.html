@@ -2541,10 +2541,37 @@ async function msApply() {
     shiftMerges(insertAt, rowArrays.length);
     const base = insertAt;
     // 样式（同款号字体颜色+居中）+ 块内合并 C/F/G/I
+    // 新款号配色：同款沿用旧色；新款号选未被占用的调色板颜色（同款多PO共享）
+    const colorOfTpl = st => { const f = (st[3] && st[3].font) || (st[1] && st[1].font); return f && f.color ? JSON.stringify(f.color) : ''; };
+    const usedColors = new Set(Object.keys(styleTpl).map(b => colorOfTpl(styleTpl[b])).filter(Boolean));
+    const PALETTE = ['FF00B050', 'FF0070C0', 'FFFF00FF', 'FFED7D31', 'FF00B0F0', 'FFC00000', 'FF70AD47', 'FF2E75B6', 'FFBF8F00', 'FF548235', 'FF9933CC', 'FF7030A0'];
+    let paletteIdx = 0;
+    const newStyleColor = {};
+    const pickColor = () => {
+      for (let round = 0; round < PALETTE.length; round++) {
+        const argb = PALETTE[(paletteIdx + round) % PALETTE.length];
+        if (!usedColors.has(JSON.stringify({argb}))) {
+          usedColors.add(JSON.stringify({argb}));
+          paletteIdx = (paletteIdx + round + 1) % PALETTE.length;
+          return argb;
+        }
+      }
+      const argb = PALETTE[paletteIdx++ % PALETTE.length];
+      usedColors.add(JSON.stringify({argb}));
+      return argb;
+    };
     newBlocks.forEach(nb => {
       const tpl = styleTpl[nb.style] || fallbackTpl;
+      let override = null;
+      if (!styleTpl[nb.style]) {
+        override = newStyleColor[nb.style] || (newStyleColor[nb.style] = pickColor());
+      }
       for (let r = base + nb.start; r <= base + nb.end; r++) {
         applyStyle(r, tpl);
+        if (override) for (let c = 1; c <= 11; c++) {
+          const cell = ws.getRow(r).getCell(c);
+          cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
+        }
         ws.getRow(r).getCell(5).numFmt = '0';
       }
       const t = base + nb.start, bb = base + nb.end;
