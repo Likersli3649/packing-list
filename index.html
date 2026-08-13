@@ -2592,7 +2592,7 @@ async function msApply() {
                 const cell = ws.getRow(r).getCell(c);
                 const fc = cell.font && cell.font.color;
                 const rowPlain = !fc || fc.theme === 0 || fc.theme === 1 || fc.argb === 'FF000000';
-                if (rowPlain) cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
+                if (rowPlain) cell.font = {name: '宋体', charset: 134, bold: true, size: 16, color: {argb: override}};
               }
             }
           }
@@ -2602,7 +2602,7 @@ async function msApply() {
         applyStyle(r, tpl);
         if (override) for (let c = 1; c <= 11; c++) {
           const cell = ws.getRow(r).getCell(c);
-          cell.font = Object.assign({}, cell.font || {}, {color: {argb: override}});
+          cell.font = {name: '宋体', charset: 134, bold: true, size: 16, color: {argb: override}};
         }
         ws.getRow(r).getCell(5).numFmt = '0';
       }
