@@ -2432,12 +2432,22 @@ async function msApply() {
     return st;
   };
   const applyStyle = (r, st) => {
+    const thinB = {style: 'thin', color: {argb: 'FF000000'}};
     for (let c = 1; c <= 11; c++) {
       const cell = ws.getRow(r).getCell(c);
       const s = st[c - 1];
       if (!s) continue;
       if (s.font) cell.font = s.font;
-      if (s.border) cell.border = s.border;
+      if (s.border) {
+        const b = s.border;
+        const has = d => b[d] && b[d].style;
+        if (has('top') || has('bottom') || has('left') || has('right')) {
+          cell.border = {top: has('top') ? b.top : thinB, bottom: has('bottom') ? b.bottom : thinB,
+            left: has('left') ? b.left : thinB, right: has('right') ? b.right : thinB};
+        } else {
+          cell.border = b;
+        }
+      }
       if (s.fill) cell.fill = s.fill;
       cell.alignment = Object.assign({}, s.alignment || {}, {horizontal: 'center', vertical: 'middle'});
       if (s.numFmt) cell.numFmt = s.numFmt;
