@@ -1147,9 +1147,10 @@ let lastHead = null;
 function renderResultTable() {
   const headers = ['Carton No.', 'PO #', 'Lot #', 'Style #', 'Barcode', 'Product Name',
     'Color', 'Size', '# of pieces', 'Carton Length', 'Carton Width', 'Carton Height',
-    'CBM', 'NW (in Kgs)', 'GW (in Kgs)', '＋'];
+    'CBM', 'NW (in Kgs)', 'GW (in Kgs)', 'PCS/CTN', '＋'];
   const rowsHtml = packData.map((r, i) => {
     const cells = [r.cartonNo, r.po, r.lot, r.style, r.barcode, r.product, r.color, r.size, r.qty, r.L, r.W, r.H, r.cbm, r.nw, r.gw];
+    const pcs = (r.ctns > 1) ? Math.round(r.qty / r.ctns) : r.qty;
     const rowspan = !!(r._group && !r._secondary);
     const spanAttr = (c) => (rowspan && c >= 9) ? ' rowspan="2"' : '';
     return `<tr>${cells.map((v, c) => {
@@ -1161,7 +1162,7 @@ function renderResultTable() {
       if (c === 2) return `<td${spanAttr(c)} data-lot="${i}">${esc(v)}</td>`;
       if (c === 4) return `<td${spanAttr(c)} data-bc="${i}">${esc(v)}</td>`;
       return `<td${spanAttr(c)}>${esc(v)}</td>`;
-    }).join('')}<td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
+    }).join('')}<td>${pcs}</td><td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
   }).join('');
   $('resultArea').innerHTML =
     `<div class="add-btn-box"><button id="addCartonBtn" class="btn btn-soft">+ 末尾加箱行</button><span style="margin-left:12px;font-size:12px;color:#64748b">每行末的 ＋ 可在该行后插入新箱行；件数改 0 自动删除该行；Color / Size 可直接修改；件数 0 的行不计入合计与导出</span></div>
@@ -1171,7 +1172,7 @@ function renderResultTable() {
         <td colspan="8">TOTAL 总计</td>
         <td id="totPcs"></td>
         <td colspan="3" id="totBox"></td>
-        <td id="totCbm"></td><td id="totNw"></td><td id="totGw"></td><td></td>
+        <td id="totCbm"></td><td id="totNw"></td><td id="totGw"></td><td></td><td></td>
       </tr></tbody></table></div>
     <div class="total-summary">
       <strong>整单汇总：</strong><br>
@@ -3041,25 +3042,77 @@ function renderAdminCustomers(body) {
     confirmModal('删除客户', `确定删除客户【${name}】？`, () => { c.splice(+b.dataset.i, 1); saveCustomers(c); adminLog('删除客户 ' + name); closeModal(); renderAdmin(); });
   }));
 }
+function sizeGridHtml(prefix, vals, label, sizes) {
+  return '<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px">' + label + '</div><div class="admin-form">'
+    + sizes.map(sz => '<div><label>' + esc(sz) + '</label><input id="' + prefix + '_' + sz + '" type="number" step="0.001" value="' + (vals && vals[sz] != null ? vals[sz] : '') + '"></div>').join('')
+    + '</div></div>';
+}
+function unionSizes(style) {
+  const p = styleParamLib[style] || {};
+  const set = new Set(state.sizes);
+  ['weight', 'bigBoxQty', 'smallBoxQty'].forEach(k => Object.keys(p[k] || {}).forEach(s => set.add(s)));
+  return Array.from(set);
+}
 function renderAdminStyles(body) {
-  body.innerHTML = '<div class="admin-note">款号参数（净重/大箱件数/小箱件数）以 JSON 形式编辑，保存后立即生效。</div><textarea id="stJson" style="width:100%;height:300px;font-family:monospace;font-size:12px"></textarea><div style="margin-top:8px"><button class="abtn primary" id="stSave">保存款号参数</button></div>';
-  $('stJson').value = JSON.stringify(styleParamLib, null, 2);
+  const styles = Object.keys(styleParamLib);
+  let html = '<div class="admin-note">选择款号编辑其 克重/大箱件数/小箱件数，或输入新款号新增。保存后立即生效。</div>';
+  html += '<div class="admin-form"><select id="stSel"><option value="">选择款号…</option>' + styles.map(s => '<option>' + esc(s) + '</option>').join('') + '</select><input id="stNew" placeholder="或输入新款号"><button class="abtn" id="stAddNew">新增款号</button></div>';
+  html += '<div id="stEditor"></div>';
+  body.innerHTML = html;
+  $('stAddNew').addEventListener('click', () => {
+    const v = $('stNew').value.trim();
+    if (!v) { alert('请输入款号'); return; }
+    if (!styleParamLib[v]) styleParamLib[v] = {weight: {}, bigBoxQty: {}, smallBoxQty: {}};
+    adminLog('新增款号 ' + v);
+    renderAdmin();
+    $('stSel').value = v; renderStyleEditor(v);
+  });
+  $('stSel').addEventListener('change', () => renderStyleEditor($('stSel').value));
+}
+function renderStyleEditor(style) {
+  const ed = $('stEditor');
+  if (!style) { ed.innerHTML = ''; return; }
+  const p = styleParamLib[style] || (styleParamLib[style] = {weight: {}, bigBoxQty: {}, smallBoxQty: {}});
+  const sizes = unionSizes(style);
+  ed.innerHTML = '<div class="admin-note">款号 ' + esc(style) + ' 参数</div>'
+    + sizeGridHtml('stW', p.weight, '克重 KG/件', sizes)
+    + sizeGridHtml('stB', p.bigBoxQty, '大箱件数', sizes)
+    + sizeGridHtml('stS', p.smallBoxQty, '小箱件数', sizes)
+    + '<button class="abtn primary" id="stSave">保存款号参数</button>';
   $('stSave').addEventListener('click', () => {
-    try { const o = JSON.parse($('stJson').value); Object.keys(styleParamLib).forEach(k => delete styleParamLib[k]); Object.assign(styleParamLib, o); adminLog('修改款号参数'); alert('款号参数已保存'); }
-    catch (e) { alert('JSON 格式错误：' + e.message); }
+    sizes.forEach(sz => {
+      if ($('stW_' + sz) && $('stW_' + sz).value) p.weight[sz] = +$('stW_' + sz).value;
+      if ($('stB_' + sz) && $('stB_' + sz).value) p.bigBoxQty[sz] = +$('stB_' + sz).value;
+      if ($('stS_' + sz) && $('stS_' + sz).value) p.smallBoxQty[sz] = +$('stS_' + sz).value;
+    });
+    adminLog('修改款号参数 ' + style);
+    alert('款号 ' + style + ' 参数已保存');
   });
 }
 function renderAdminBox(body) {
-  body.innerHTML = '<div class="admin-note">全局默认箱规与每箱件数（新尺码缺省时使用）。</div><div class="admin-form">'
-    + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>大箱件数 ${sz}</label><input id="bb_${sz}" type="number" value="${sizeDefaults.bigQty[sz] || ''}"></div>`).join('')
-    + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>小箱件数 ${sz}</label><input id="sb_${sz}" type="number" value="${sizeDefaults.smallQty[sz] || ''}"></div>`).join('')
-    + '</div><button class="abtn primary" id="bxSave">保存箱规/件数</button>';
+  const styles = Object.keys(styleParamLib);
+  let html = '<div class="admin-note">选择「全局默认」或某个款号，编辑其 大箱/小箱 每箱件数。</div>';
+  html += '<div class="admin-form"><select id="bxSel"><option value="__global">全局默认</option>' + styles.map(s => '<option>' + esc(s) + '</option>').join('') + '</select></div>';
+  html += '<div id="bxEditor"></div>';
+  body.innerHTML = html;
+  $('bxSel').addEventListener('change', () => renderBoxEditor($('bxSel').value));
+  renderBoxEditor('__global');
+}
+function renderBoxEditor(sel) {
+  const ed = $('bxEditor');
+  const isGlobal = sel === '__global';
+  const big = isGlobal ? sizeDefaults.bigQty : ((styleParamLib[sel] && (styleParamLib[sel].bigBoxQty || (styleParamLib[sel].bigBoxQty = {}))) || {});
+  const small = isGlobal ? sizeDefaults.smallQty : ((styleParamLib[sel] && (styleParamLib[sel].smallBoxQty || (styleParamLib[sel].smallBoxQty = {}))) || {});
+  const sizes = isGlobal ? ['XS', 'S', 'M', 'L', 'XL'] : unionSizes(sel);
+  ed.innerHTML = sizeGridHtml('bb', big, '大箱件数', sizes) + sizeGridHtml('sb', small, '小箱件数', sizes) + '<button class="abtn primary" id="bxSave">保存箱规/件数</button>';
   $('bxSave').addEventListener('click', () => {
-    ['XS', 'S', 'M', 'L', 'XL'].forEach(sz => {
-      if ($('bb_' + sz).value) sizeDefaults.bigQty[sz] = +$('bb_' + sz).value;
-      if ($('sb_' + sz).value) sizeDefaults.smallQty[sz] = +$('sb_' + sz).value;
+    sizes.forEach(sz => {
+      if ($('bb_' + sz) && $('bb_' + sz).value) big[sz] = +$('bb_' + sz).value;
+      if ($('sb_' + sz) && $('sb_' + sz).value) small[sz] = +$('sb_' + sz).value;
     });
-    ensureSizeMaps(); renderBoxQty(); adminLog('修改箱规/件数'); alert('箱规/件数已保存');
+    if (isGlobal) { ensureSizeMaps(); renderBoxQty(); }
+    adminLog('修改箱规 ' + (isGlobal ? '全局' : sel));
+    alert('箱规/件数已保存');
   });
 }
 function renderAdminFeatures(body) {
