@@ -1162,7 +1162,7 @@ function renderResultTable() {
       if (c === 2) return `<td${spanAttr(c)} data-lot="${i}">${esc(v)}</td>`;
       if (c === 4) return `<td${spanAttr(c)} data-bc="${i}">${esc(v)}</td>`;
       return `<td${spanAttr(c)}>${esc(v)}</td>`;
-    }).join('')}<td>${pcs}</td><td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
+    }).join('')}<td><input class="row-edit" data-r="${i}" data-f="pcsPerCtn" style="width:60px" value="${r.pcsPerCtn != null ? r.pcsPerCtn : pcs}"></td><td><button class="row-add" data-r="${i}" title="在此行后插入新箱行" style="width:26px;height:24px;border:1px solid #c7d2fe;background:#eef2ff;color:#1d4ed8;border-radius:6px;cursor:pointer;font-weight:700">＋</button></td></tr>`;
   }).join('');
   $('resultArea').innerHTML =
     `<div class="add-btn-box"><button id="addCartonBtn" class="btn btn-soft">+ 末尾加箱行</button><span style="margin-left:12px;font-size:12px;color:#64748b">每行末的 ＋ 可在该行后插入新箱行；件数改 0 自动删除该行；Color / Size 可直接修改；件数 0 的行不计入合计与导出</span></div>
@@ -1293,6 +1293,11 @@ function onRowEdit(inp) {
     const v = parseFloat(inp.value);
     r[f] = isNaN(v) ? 0 : v;
     if (f === 'qty' && !r._unitW) r._unitW = state.weight[r.size] || 0; // 占位行填件数：自动匹配克重
+  }
+  if (f === 'pcsPerCtn') {
+    r.qty = Math.round((r.pcsPerCtn || 0) * (r.ctns || 1)); // 件数=每箱件数×箱数
+    const q = document.querySelector(`input[data-f="qty"][data-r="${idx}"]`);
+    if (q) q.value = r.qty;
   }
   if (f === 'qty' && (r.qty || 0) > 0 && !r.cartonNo) {
     r.cartonNo = String(nextNo()); // 占位行获得编号：取当前最大号+1，不打乱手改的箱号
