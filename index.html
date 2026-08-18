@@ -284,6 +284,39 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
 .admin-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px}
 .admin-form input,.admin-form select{width:100%}
 .admin-note{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:10px;font-size:12px;margin-bottom:12px}
+.admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:center}
+.stat-card b{display:block;font-size:22px;color:#0f172a}
+.stat-card span{font-size:12px;color:#64748b}
+.admin-search{margin-bottom:12px}
+.admin-search input{width:100%}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600}
+.badge.role-admin{background:#ede9fe;color:#6d28d9}
+.badge.role-user{background:#e0f2fe;color:#0369a1}
+.badge.on{background:#dcfce7;color:#15803d}
+.badge.off{background:#fee2e2;color:#b91c1c}
+.perm-chip{display:inline-block;margin:2px;padding:2px 8px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:11px}
+.abtn{padding:5px 12px;border-radius:7px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:12px;margin:0 2px}
+.abtn:hover{border-color:#2563eb;color:#2563eb}
+.abtn.danger{color:#dc2626;border-color:#fecaca}
+.abtn.danger:hover{background:#fef2f2}
+.abtn.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{width:min(560px,94vw);max-height:86vh;overflow:auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0f172a}
+.modal-x{border:none;background:none;font-size:20px;cursor:pointer;color:#64748b}
+.modal-body{padding:20px}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid #e2e8f0}
+.mbtn{padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}
+.mbtn.primary{background:#2563eb;color:#fff;border:none}
+.mbtn.ghost{background:#fff;border:1px solid #e2e8f0;color:#334155}
+.mfield{margin-bottom:14px}
+.mfield label{display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:6px}
+.mfield input,.mfield select{width:100%}
+.perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.perm-item{display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px}
+.log-item{padding:8px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:6px;margin-bottom:8px;font-size:12px;color:#334155}
+.log-item .t{color:#94a3b8;margin-right:8px}
 </style>
 <div class="admin-mask" id="adminMask">
   <div class="admin-panel">
@@ -294,8 +327,17 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
       <button class="admin-tab" data-tab="styles">款号参数</button>
       <button class="admin-tab" data-tab="box">箱规/件数</button>
       <button class="admin-tab" data-tab="features">功能开关</button>
+      <button class="admin-tab" data-tab="logs">操作日志</button>
+      <button class="admin-tab" data-tab="backup">数据备份</button>
     </div>
     <div class="admin-body" id="adminBody"></div>
+  </div>
+  <div class="modal-mask" id="adminModal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-head"><span id="modalTitle"></span><button class="modal-x" id="modalClose">×</button></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot"><button class="mbtn ghost" id="modalCancel">取消</button><button class="mbtn primary" id="modalOk">确定</button></div>
+    </div>
   </div>
 </div>
 <script>
@@ -2722,7 +2764,8 @@ function doLogin(userObj, isSuper) {
   document.body.classList.remove('login-page');
   setTimeout(() => { initPage(); applyPermissions(); }, 100);
 }
-$('loginSubmit').addEventListener('click', () => {
+$('loginSubmit').addEventListener('click', async () => {
+  await ensureLoaded();
   const acc = $('userAcc').value.trim();
   const pwd = $('userPwd').value;
   // 1) 已注册账号
@@ -2755,10 +2798,34 @@ const SESSION_KEY = 'packing_session';
 const FEATURES_KEY = 'packing_features';
 let SESSION = null;
 try { SESSION = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { SESSION = null; }
-function loadUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch (e) { return []; } }
-function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
-function loadCustomers() { try { return JSON.parse(localStorage.getItem(CUSTOMERS_KEY)) || ['QUINCE', 'MASSIMO DUTTI']; } catch (e) { return ['QUINCE', 'MASSIMO DUTTI']; } }
-function saveCustomers(c) { localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(c)); }
+// 双模式：http(s) 打开=服务器模式（账号/客户存后端，多电脑同步）；file 打开=本地模式（localStorage）
+const SERVER_MODE = /^https?:$/.test(location.protocol);
+let USERS_CACHE = null, CUST_CACHE = null, STATE_LOADED = false;
+function ensureLoaded() {
+  if (!SERVER_MODE) { STATE_LOADED = true; return Promise.resolve(); }
+  if (STATE_LOADED) return Promise.resolve();
+  return fetch('/api/state').then(r => r.json()).then(s => {
+    USERS_CACHE = s.users || [];
+    CUST_CACHE = s.customers || ['QUINCE', 'MASSIMO DUTTI'];
+    STATE_LOADED = true;
+  }).catch(e => { USERS_CACHE = USERS_CACHE || []; CUST_CACHE = CUST_CACHE || ['QUINCE', 'MASSIMO DUTTI']; STATE_LOADED = true; });
+}
+function loadUsers() {
+  if (SERVER_MODE) return USERS_CACHE || [];
+  try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch (e) { return []; }
+}
+function saveUsers(u) {
+  if (SERVER_MODE) { USERS_CACHE = u; fetch('/api/users', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(u)}); return; }
+  localStorage.setItem(USERS_KEY, JSON.stringify(u));
+}
+function loadCustomers() {
+  if (SERVER_MODE) return CUST_CACHE || ['QUINCE', 'MASSIMO DUTTI'];
+  try { return JSON.parse(localStorage.getItem(CUSTOMERS_KEY)) || ['QUINCE', 'MASSIMO DUTTI']; } catch (e) { return ['QUINCE', 'MASSIMO DUTTI']; }
+}
+function saveCustomers(c) {
+  if (SERVER_MODE) { CUST_CACHE = c; fetch('/api/customers', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(c)}); return; }
+  localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(c));
+}
 function loadFeatures() { try { return Object.assign(allPerms(), JSON.parse(localStorage.getItem(FEATURES_KEY) || '{}')); } catch (e) { return allPerms(); } }
 function saveFeatures(f) { localStorage.setItem(FEATURES_KEY, JSON.stringify(f)); }
 function allPerms() { return {exportExcel: true, exportLabels: true, exportGeneral: true, editParams: true, manageSku: true}; }
@@ -2791,7 +2858,8 @@ $('regGetCode').addEventListener('click', () => {
   regCode = String(Math.floor(100000 + Math.random() * 900000));
   alert('【演示环境，未接真实短信服务】\n您的手机验证码为：' + regCode + '\n（正式部署后将发送至 ' + ph + '）');
 });
-$('regSubmit').addEventListener('click', () => {
+$('regSubmit').addEventListener('click', async () => {
+  await ensureLoaded();
   const acc = $('regAcc').value.trim();
   const p1 = $('regPwd').value, p2 = $('regPwd2').value;
   const ph = $('regPhone').value.trim();
@@ -2815,7 +2883,8 @@ $('regSubmit').addEventListener('click', () => {
 
 /* ---- 管理后台暗门：logo连点5次 或 Ctrl+Shift+A（仅超级管理员） ---- */
 let logoClicks2 = 0, logoTimer2 = null;
-function tryOpenAdmin() {
+async function tryOpenAdmin() {
+  await ensureLoaded();
   if (!SESSION || SESSION.role !== 'superadmin') { alert('仅超级管理员可进入管理后台'); return; }
   $('adminMask').style.display = 'block';
   adminTab = 'accounts';
@@ -2837,6 +2906,31 @@ document.querySelectorAll('.admin-tab').forEach(b => b.addEventListener('click',
   renderAdmin();
 }));
 let adminTab = 'accounts';
+/* ---- 通用弹窗 ---- */
+let modalOkFn = null;
+function openModal(title, bodyHtml, onOk) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = bodyHtml;
+  modalOkFn = onOk || null;
+  $('modalOk').style.display = onOk ? '' : 'none';
+  $('adminModal').style.display = 'flex';
+}
+function closeModal() { $('adminModal').style.display = 'none'; modalOkFn = null; }
+function confirmModal(title, msg, onOk) {
+  openModal(title, `<p style="color:#334155;font-size:14px">${esc(msg)}</p>`, onOk);
+}
+$('modalClose').addEventListener('click', closeModal);
+$('modalCancel').addEventListener('click', closeModal);
+$('modalOk').addEventListener('click', () => { if (modalOkFn) modalOkFn(); });
+/* ---- 操作日志 ---- */
+const LOGS_KEY = 'packing_admin_logs';
+function adminLog(action) {
+  let logs = [];
+  try { logs = JSON.parse(localStorage.getItem(LOGS_KEY)) || []; } catch (e) {}
+  logs.unshift({t: new Date().toLocaleString(), a: action, by: (SESSION && SESSION.acc) || '超管'});
+  if (logs.length > 200) logs = logs.slice(0, 200);
+  localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
+}
 function renderAdmin() {
   const body = $('adminBody');
   if (adminTab === 'accounts') return renderAdminAccounts(body);
@@ -2844,67 +2938,113 @@ function renderAdmin() {
   if (adminTab === 'styles') return renderAdminStyles(body);
   if (adminTab === 'box') return renderAdminBox(body);
   if (adminTab === 'features') return renderAdminFeatures(body);
+  if (adminTab === 'logs') return renderAdminLogs(body);
+  if (adminTab === 'backup') return renderAdminBackup(body);
 }
 function renderAdminAccounts(body) {
   const users = loadUsers();
   const custs = loadCustomers();
-  let html = '<div class="admin-note">新注册账号默认为普通用户。可在此编辑权限、所属客户、启用/停用、重置密码、提升为管理员。</div>';
-  html += '<table><tr><th>账号</th><th>手机号</th><th>角色</th><th>所属客户</th><th>权限</th><th>状态</th><th>操作</th></tr>';
+  const enabled = users.filter(u => u.enabled).length;
+  const admins = users.filter(u => u.role === 'superadmin').length;
+  let html = `<div class="admin-stats">
+    <div class="stat-card"><b>${users.length}</b><span>总账号</span></div>
+    <div class="stat-card"><b>${enabled}</b><span>已启用</span></div>
+    <div class="stat-card"><b>${users.length - enabled}</b><span>已停用</span></div>
+    <div class="stat-card"><b>${admins}</b><span>管理员</span></div>
+  </div>`;
+  html += `<div class="admin-search"><input id="accSearch" placeholder="搜索账号 / 手机号 / 客户…"></div>`;
+  html += '<table id="accTable"><tr><th>账号</th><th>手机号</th><th>角色</th><th>所属客户</th><th>权限</th><th>状态</th><th>注册时间</th><th>操作</th></tr>';
   users.forEach((u, i) => {
-    const perms = Object.keys(PERM_LABEL).filter(k => u.perms && u.perms[k]).map(k => PERM_LABEL[k]).join('、') || '无';
-    html += `<tr><td>${esc(u.acc)}</td><td>${esc(u.phone || '')}</td><td>${u.role === 'superadmin' ? '管理员' : '普通'}</td><td>${esc(u.customer || '未设置')}</td><td style="font-size:11px">${esc(perms)}</td><td>${u.enabled ? '启用' : '停用'}</td>
-      <td class="admin-row-actions"><button data-a="edit" data-i="${i}">编辑</button><button data-a="pwd" data-i="${i}">重置密码</button><button data-a="toggle" data-i="${i}">${u.enabled ? '停用' : '启用'}</button><button data-a="del" data-i="${i}">删除</button></td></tr>`;
+    const permChips = Object.keys(PERM_LABEL).filter(k => u.perms && u.perms[k]).map(k => `<span class="perm-chip">${PERM_LABEL[k]}</span>`).join('') || '<span class="perm-chip">无</span>';
+    const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-';
+    html += `<tr data-acc="${esc((u.acc + ' ' + (u.phone || '') + ' ' + (u.customer || '')).toLowerCase())}">
+      <td><b>${esc(u.acc)}</b></td><td>${esc(u.phone || '-')}</td>
+      <td><span class="badge ${u.role === 'superadmin' ? 'role-admin' : 'role-user'}">${u.role === 'superadmin' ? '管理员' : '普通'}</span></td>
+      <td>${esc(u.customer || '未设置')}</td><td>${permChips}</td>
+      <td><span class="badge ${u.enabled ? 'on' : 'off'}">${u.enabled ? '启用' : '停用'}</span></td>
+      <td style="font-size:11px;color:#94a3b8">${created}</td>
+      <td class="admin-row-actions"><button class="abtn primary" data-a="edit" data-i="${i}">编辑</button><button class="abtn" data-a="pwd" data-i="${i}">重置密码</button><button class="abtn" data-a="toggle" data-i="${i}">${u.enabled ? '停用' : '启用'}</button><button class="abtn danger" data-a="del" data-i="${i}">删除</button></td></tr>`;
   });
   html += '</table>';
-  html += '<h4 style="margin:14px 0 8px">新增账号</h4><div class="admin-form"><input id="naAcc" placeholder="账号名"><input id="naPwd" placeholder="初始密码(≥6位)"><select id="naCust"><option value="">未设置客户</option>' + custs.map(c => `<option>${esc(c)}</option>`).join('') + '</select><select id="naRole"><option value="user">普通用户</option><option value="superadmin">管理员</option></select><button class="code-btn" id="naAdd">添加</button></div>';
+  html += '<h4 style="margin:16px 0 8px">新增账号</h4><div class="admin-form"><input id="naAcc" placeholder="账号名"><input id="naPwd" placeholder="初始密码(≥6位)"><input id="naPhone" placeholder="手机号(可选)"><select id="naCust"><option value="">未设置客户</option>' + custs.map(c => `<option>${esc(c)}</option>`).join('') + '</select><select id="naRole"><option value="user">普通用户</option><option value="superadmin">管理员</option></select><button class="abtn primary" id="naAdd">添加账号</button></div>';
   body.innerHTML = html;
+  $('accSearch').addEventListener('input', () => {
+    const q = $('accSearch').value.trim().toLowerCase();
+    body.querySelectorAll('#accTable tr[data-acc]').forEach(tr => { tr.style.display = tr.dataset.acc.includes(q) ? '' : 'none'; });
+  });
   body.querySelectorAll('.admin-row-actions button').forEach(b => b.addEventListener('click', () => adminUserAction(b.dataset.a, +b.dataset.i)));
   $('naAdd').addEventListener('click', () => {
-    const acc = $('naAcc').value.trim(), pwd = $('naPwd').value;
+    const acc = $('naAcc').value.trim(), pwd = $('naPwd').value, phone = $('naPhone').value.trim();
     if (!acc || pwd.length < 6) { alert('账号名必填，密码至少6位'); return; }
     const users = loadUsers();
     if (users.some(x => x.acc === acc)) { alert('账号已存在'); return; }
-    users.push({acc, pass: sha256(pwd), email: '', role: $('naRole').value, customer: $('naCust').value, perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
-    saveUsers(users); renderAdmin();
+    users.push({acc, pass: sha256(pwd), phone, email: '', role: $('naRole').value, customer: $('naCust').value, perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
+    saveUsers(users); adminLog('新增账号 ' + acc); renderAdmin();
   });
 }
 function adminUserAction(a, i) {
   const users = loadUsers();
   const u = users[i];
   if (!u) return;
-  if (a === 'toggle') { u.enabled = !u.enabled; saveUsers(users); return renderAdmin(); }
-  if (a === 'del') { if (confirm('删除账号 ' + u.acc + '？')) { users.splice(i, 1); saveUsers(users); return renderAdmin(); } return; }
-  if (a === 'pwd') { const p = prompt('为 ' + u.acc + ' 设置新密码（≥6位）：'); if (p && p.length >= 6) { u.pass = sha256(p); saveUsers(users); alert('密码已重置'); } return; }
+  if (a === 'toggle') {
+    confirmModal(u.enabled ? '停用账号' : '启用账号', `确定${u.enabled ? '停用' : '启用'}账号【${u.acc}】？`, () => {
+      u.enabled = !u.enabled; saveUsers(users); adminLog(`${u.enabled ? '启用' : '停用'}账号 ${u.acc}`); closeModal(); renderAdmin();
+    });
+    return;
+  }
+  if (a === 'del') {
+    confirmModal('删除账号', `确定删除账号【${u.acc}】？此操作不可恢复。`, () => {
+      users.splice(i, 1); saveUsers(users); adminLog('删除账号 ' + u.acc); closeModal(); renderAdmin();
+    });
+    return;
+  }
+  if (a === 'pwd') {
+    openModal('重置密码 - ' + u.acc, `<div class="mfield"><label>新密码（≥6位）</label><input id="mpPwd" type="password" placeholder="输入新密码"></div>`, () => {
+      const p = $('mpPwd').value;
+      if (p.length < 6) { alert('密码至少6位'); return; }
+      u.pass = sha256(p); saveUsers(users); adminLog('重置密码 ' + u.acc); closeModal(); alert('密码已重置');
+    });
+    return;
+  }
   if (a === 'edit') {
     const custs = loadCustomers();
-    const cust = prompt('所属客户（可选：' + custs.join('/') + '）：', u.customer || '');
-    if (cust !== null) u.customer = cust;
-    const role = prompt('角色（user=普通 / superadmin=管理员）：', u.role);
-    if (role === 'user' || role === 'superadmin') u.role = role;
-    const perms = Object.assign({}, defaultPerms());
-    Object.keys(PERM_LABEL).forEach(k => {
-      const v = confirm((u.acc + ' 是否开通【' + PERM_LABEL[k] + '】权限？'));
-      perms[k] = v;
+    const custOpts = custs.map(c => `<option ${u.customer === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    const permBoxes = Object.keys(PERM_LABEL).map(k => `<label class="perm-item"><input type="checkbox" id="mp_${k}" ${u.perms && u.perms[k] ? 'checked' : ''}> ${PERM_LABEL[k]}</label>`).join('');
+    openModal('编辑账号 - ' + u.acc, `
+      <div class="mfield"><label>所属客户</label><select id="mpCust"><option value="">未设置客户</option>${custOpts}</select></div>
+      <div class="mfield"><label>角色</label><select id="mpRole"><option value="user" ${u.role !== 'superadmin' ? 'selected' : ''}>普通用户</option><option value="superadmin" ${u.role === 'superadmin' ? 'selected' : ''}>管理员</option></select></div>
+      <div class="mfield"><label>功能权限</label><div class="perm-grid">${permBoxes}</div></div>`, () => {
+      u.customer = $('mpCust').value;
+      u.role = $('mpRole').value;
+      const perms = {};
+      Object.keys(PERM_LABEL).forEach(k => perms[k] = $('mp_' + k).checked);
+      u.perms = perms;
+      saveUsers(users); adminLog('编辑账号 ' + u.acc); closeModal(); renderAdmin();
     });
-    u.perms = perms;
-    saveUsers(users); renderAdmin();
   }
 }
 function renderAdminCustomers(body) {
   const custs = loadCustomers();
-  let html = '<div class="admin-form"><input id="ncName" placeholder="新客户名称"><button class="code-btn" id="ncAdd">添加</button></div>';
-  html += '<table><tr><th>客户</th><th>操作</th></tr>';
-  custs.forEach((c, i) => html += `<tr><td>${esc(c)}</td><td class="admin-row-actions"><button data-i="${i}">删除</button></td></tr>`);
+  let html = '<div class="admin-form"><input id="ncName" placeholder="新客户名称"><button class="abtn primary" id="ncAdd">添加客户</button></div>';
+  html += '<table><tr><th>客户名称</th><th>关联账号数</th><th>操作</th></tr>';
+  const users = loadUsers();
+  custs.forEach((c, i) => {
+    const n = users.filter(u => u.customer === c).length;
+    html += `<tr><td>${esc(c)}</td><td>${n}</td><td class="admin-row-actions"><button class="abtn danger" data-i="${i}">删除</button></td></tr>`;
+  });
   html += '</table>';
   body.innerHTML = html;
-  $('ncAdd').addEventListener('click', () => { const v = $('ncName').value.trim(); if (!v) return; const c = loadCustomers(); if (!c.includes(v)) c.push(v); saveCustomers(c); renderAdmin(); });
-  body.querySelectorAll('.admin-row-actions button').forEach(b => b.addEventListener('click', () => { const c = loadCustomers(); c.splice(+b.dataset.i, 1); saveCustomers(c); renderAdmin(); }));
+  $('ncAdd').addEventListener('click', () => { const v = $('ncName').value.trim(); if (!v) return; const c = loadCustomers(); if (!c.includes(v)) c.push(v); saveCustomers(c); adminLog('新增客户 ' + v); renderAdmin(); });
+  body.querySelectorAll('.admin-row-actions button').forEach(b => b.addEventListener('click', () => {
+    const c = loadCustomers(); const name = c[+b.dataset.i];
+    confirmModal('删除客户', `确定删除客户【${name}】？`, () => { c.splice(+b.dataset.i, 1); saveCustomers(c); adminLog('删除客户 ' + name); closeModal(); renderAdmin(); });
+  }));
 }
 function renderAdminStyles(body) {
-  body.innerHTML = '<div class="admin-note">款号参数（净重/大箱件数/小箱件数）以 JSON 形式编辑，保存后立即生效。</div><textarea id="stJson" style="width:100%;height:300px;font-family:monospace;font-size:12px"></textarea><div style="margin-top:8px"><button class="code-btn" id="stSave">保存款号参数</button></div>';
+  body.innerHTML = '<div class="admin-note">款号参数（净重/大箱件数/小箱件数）以 JSON 形式编辑，保存后立即生效。</div><textarea id="stJson" style="width:100%;height:300px;font-family:monospace;font-size:12px"></textarea><div style="margin-top:8px"><button class="abtn primary" id="stSave">保存款号参数</button></div>';
   $('stJson').value = JSON.stringify(styleParamLib, null, 2);
   $('stSave').addEventListener('click', () => {
-    try { const o = JSON.parse($('stJson').value); Object.keys(styleParamLib).forEach(k => delete styleParamLib[k]); Object.assign(styleParamLib, o); alert('款号参数已保存'); }
+    try { const o = JSON.parse($('stJson').value); Object.keys(styleParamLib).forEach(k => delete styleParamLib[k]); Object.assign(styleParamLib, o); adminLog('修改款号参数'); alert('款号参数已保存'); }
     catch (e) { alert('JSON 格式错误：' + e.message); }
   });
 }
@@ -2912,25 +3052,65 @@ function renderAdminBox(body) {
   body.innerHTML = '<div class="admin-note">全局默认箱规与每箱件数（新尺码缺省时使用）。</div><div class="admin-form">'
     + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>大箱件数 ${sz}</label><input id="bb_${sz}" type="number" value="${sizeDefaults.bigQty[sz] || ''}"></div>`).join('')
     + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>小箱件数 ${sz}</label><input id="sb_${sz}" type="number" value="${sizeDefaults.smallQty[sz] || ''}"></div>`).join('')
-    + '</div><button class="code-btn" id="bxSave">保存箱规/件数</button>';
+    + '</div><button class="abtn primary" id="bxSave">保存箱规/件数</button>';
   $('bxSave').addEventListener('click', () => {
     ['XS', 'S', 'M', 'L', 'XL'].forEach(sz => {
       if ($('bb_' + sz).value) sizeDefaults.bigQty[sz] = +$('bb_' + sz).value;
       if ($('sb_' + sz).value) sizeDefaults.smallQty[sz] = +$('sb_' + sz).value;
     });
-    ensureSizeMaps(); renderBoxQty();
-    alert('箱规/件数已保存');
+    ensureSizeMaps(); renderBoxQty(); adminLog('修改箱规/件数'); alert('箱规/件数已保存');
   });
 }
 function renderAdminFeatures(body) {
   const f = loadFeatures();
-  body.innerHTML = '<div class="admin-note">功能总开关：关闭后除超级管理员外，所有账号都看不到对应功能。</div><div class="admin-form">'
-    + Object.keys(PERM_LABEL).map(k => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ft_${k}" ${f[k] ? 'checked' : ''}> ${PERM_LABEL[k]}</label>`).join('')
-    + '</div><button class="code-btn" id="ftSave">保存功能开关</button>';
+  body.innerHTML = '<div class="admin-note">功能总开关：关闭后除超级管理员外，所有账号都看不到对应功能。</div><div class="perm-grid">'
+    + Object.keys(PERM_LABEL).map(k => `<label class="perm-item"><input type="checkbox" id="ft_${k}" ${f[k] ? 'checked' : ''}> ${PERM_LABEL[k]}</label>`).join('')
+    + '</div><div style="margin-top:12px"><button class="abtn primary" id="ftSave">保存功能开关</button></div>';
   $('ftSave').addEventListener('click', () => {
     const f2 = {};
     Object.keys(PERM_LABEL).forEach(k => f2[k] = $('ft_' + k).checked);
-    saveFeatures(f2); applyPermissions(); alert('功能开关已保存');
+    saveFeatures(f2); applyPermissions(); adminLog('修改功能开关'); alert('功能开关已保存');
+  });
+}
+function renderAdminLogs(body) {
+  let logs = [];
+  try { logs = JSON.parse(localStorage.getItem(LOGS_KEY)) || []; } catch (e) {}
+  let html = '<div class="admin-note">记录管理员的最近 200 条操作。</div>';
+  if (!logs.length) html += '<p style="color:#94a3b8">暂无操作记录。</p>';
+  else html += logs.map(l => `<div class="log-item"><span class="t">${esc(l.t)}</span>[${esc(l.by)}] ${esc(l.a)}</div>`).join('');
+  body.innerHTML = html;
+}
+function renderAdminBackup(body) {
+  body.innerHTML = `<div class="admin-note">备份/恢复账号与客户数据（JSON）。服务器模式下备份账号客户，本地模式下备份全部本地数据。</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="abtn primary" id="bkExport">导出备份文件</button>
+      <button class="abtn" id="bkImportBtn">导入备份文件</button>
+      <input type="file" id="bkFile" accept=".json" style="display:none">
+    </div>`;
+  $('bkExport').addEventListener('click', () => {
+    const data = {users: loadUsers(), customers: loadCustomers()};
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'packing-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click(); URL.revokeObjectURL(url);
+    adminLog('导出备份');
+  });
+  $('bkImportBtn').addEventListener('click', () => $('bkFile').click());
+  $('bkFile').addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const d = JSON.parse(rd.result);
+        if (!Array.isArray(d.users)) throw new Error('格式错误');
+        confirmModal('导入备份', '导入将覆盖当前账号/客户数据，确定继续？', () => {
+          saveUsers(d.users); if (Array.isArray(d.customers)) saveCustomers(d.customers);
+          adminLog('导入备份'); closeModal(); renderAdmin(); alert('备份已导入');
+        });
+      } catch (err) { alert('备份文件格式错误：' + err.message); }
+    };
+    rd.readAsText(f);
   });
 }
 $('genBtn').addEventListener('click', generatePacking);
