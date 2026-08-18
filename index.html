@@ -3080,9 +3080,23 @@ function sizeGridHtml(prefix, vals, label, sizes) {
 }
 function unionSizes(style) {
   const p = styleParamLib[style] || {};
+  if (p.sizes && p.sizes.length) return p.sizes.slice();
   const set = new Set(state.sizes);
   ['weight', 'bigBoxQty', 'smallBoxQty'].forEach(k => Object.keys(p[k] || {}).forEach(s => set.add(s)));
   return Array.from(set);
+}
+function addStyleSize(style, sz) {
+  const p = styleParamLib[style] || (styleParamLib[style] = {weight: {}, bigBoxQty: {}, smallBoxQty: {}});
+  if (!p.sizes) p.sizes = unionSizes(style);
+  if (!p.sizes.includes(sz)) p.sizes.push(sz);
+  renderStyleEditor(style);
+}
+function removeStyleSize(style, sz) {
+  const p = styleParamLib[style] || (styleParamLib[style] = {weight: {}, bigBoxQty: {}, smallBoxQty: {}});
+  if (!p.sizes) p.sizes = unionSizes(style);
+  p.sizes = p.sizes.filter(x => x !== sz);
+  delete (p.weight || {})[sz]; delete (p.bigBoxQty || {})[sz]; delete (p.smallBoxQty || {})[sz];
+  renderStyleEditor(style);
 }
 function renderAdminStyles(body) {
   const styles = Object.keys(styleParamLib);
@@ -3106,10 +3120,15 @@ function renderStyleEditor(style) {
   const p = styleParamLib[style] || (styleParamLib[style] = {weight: {}, bigBoxQty: {}, smallBoxQty: {}});
   const sizes = unionSizes(style);
   ed.innerHTML = '<div class="admin-note">款号 ' + esc(style) + ' 参数</div>'
+    + '<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px">尺码编辑（点 × 删除，输入新增）</div>'
+    + '<div id="szChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' + sizes.map(s => '<span class="perm-chip">' + esc(s) + ' <a href="javascript:void(0)" data-sz="' + esc(s) + '" style="color:#dc2626;text-decoration:none;font-weight:700">×</a></span>').join('') + '</div>'
+    + '<div style="display:flex;gap:6px"><input id="szAdd" placeholder="如 2X" style="width:90px"><button class="abtn" id="szAddBtn">加尺码</button></div></div>'
     + sizeGridHtml('stW', p.weight, '克重 KG/件', sizes)
     + sizeGridHtml('stB', p.bigBoxQty, '大箱件数', sizes)
     + sizeGridHtml('stS', p.smallBoxQty, '小箱件数', sizes)
     + '<button class="abtn primary" id="stSave">保存款号参数</button>';
+  ed.querySelectorAll('#szChips a').forEach(a => a.addEventListener('click', () => removeStyleSize(style, a.dataset.sz)));
+  $('szAddBtn').addEventListener('click', () => { const v = $('szAdd').value.trim(); if (!v) { alert('请输入尺码'); return; } addStyleSize(style, v); });
   $('stSave').addEventListener('click', () => {
     sizes.forEach(sz => {
       if ($('stW_' + sz) && $('stW_' + sz).value) p.weight[sz] = +$('stW_' + sz).value;
