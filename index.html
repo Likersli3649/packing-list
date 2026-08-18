@@ -413,7 +413,8 @@ const styleParamLib = {
   "W-SWT-165": {weight:{XS:0.334,S:0.361,M:0.384,L:0.414,XL:0.444}, bigBoxQty:{XS:46,S:42,M:40,L:36,XL:34}, smallBoxQty:{XS:23,S:22,M:20,L:18,XL:17}},
   "W-SWT-166": {weight:{XS:0.367,S:0.383,M:0.411,L:0.443,XL:0.476}, bigBoxQty:{XS:40,S:40,M:36,L:34,XL:30}, smallBoxQty:{XS:20,S:20,M:18,L:17,XL:15}},
   "W-SWT-195": {weight:{XS:0.540,S:0.575,M:0.598,L:0.635,XL:0.650}, bigBoxQty:{XS:26,S:24,M:22,L:22,XL:20}, smallBoxQty:{XS:13,S:12,M:11,L:11,XL:10}},
-  "W--103":    {weight:{XS:0.577,S:0.615,M:0.655,L:0.711,XL:0.793}, bigBoxQty:{XS:22,S:20,M:18,L:18,XL:16}, smallBoxQty:{XS:11,S:10,M:9,L:9,XL:8}}
+  "W--103":    {weight:{XS:0.577,S:0.615,M:0.655,L:0.711,XL:0.793}, bigBoxQty:{XS:22,S:20,M:18,L:18,XL:16}, smallBoxQty:{XS:11,S:10,M:9,L:9,XL:8}},
+  "W-SWT-255": {weight:{'1X':0.823,'2X':0.863,'3X':0.939}, bigBoxQty:{'1X':16,'2X':14,'3X':14}, smallBoxQty:{'1X':8,'2X':6,'3X':6}}
 };
 /* ==================== SKU资料库（内嵌默认，可用“更新SKU资料库”上传刷新） ==================== */
 const SKU_SEED=[
@@ -2812,14 +2813,21 @@ try { SESSION = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch
 // 双模式：http(s) 打开=服务器模式（账号/客户存后端，多电脑同步）；file 打开=本地模式（localStorage）
 const SERVER_MODE = /^https?:$/.test(location.protocol);
 let USERS_CACHE = null, CUST_CACHE = null, STATE_LOADED = false;
+let REG_OPEN = false;
+function applyRegOpen() {
+  if ($('toRegister')) $('toRegister').style.display = REG_OPEN ? '' : 'none';
+  if (!REG_OPEN && $('registerPane')) $('registerPane').style.display = 'none';
+}
 function ensureLoaded() {
-  if (!SERVER_MODE) { STATE_LOADED = true; return Promise.resolve(); }
-  if (STATE_LOADED) return Promise.resolve();
+  if (!SERVER_MODE) { STATE_LOADED = true; REG_OPEN = !!(loadFeatures().openRegister); applyRegOpen(); return Promise.resolve(); }
+  if (STATE_LOADED) { applyRegOpen(); return Promise.resolve(); }
   return fetch('/api/state').then(r => r.json()).then(s => {
     USERS_CACHE = s.users || [];
     CUST_CACHE = s.customers || ['QUINCE', 'MASSIMO DUTTI'];
+    REG_OPEN = !!s.openRegister;
     STATE_LOADED = true;
-  }).catch(e => { USERS_CACHE = USERS_CACHE || []; CUST_CACHE = CUST_CACHE || ['QUINCE', 'MASSIMO DUTTI']; STATE_LOADED = true; });
+    applyRegOpen();
+  }).catch(e => { USERS_CACHE = USERS_CACHE || []; CUST_CACHE = CUST_CACHE || ['QUINCE', 'MASSIMO DUTTI']; STATE_LOADED = true; applyRegOpen(); });
 }
 function loadUsers() {
   if (SERVER_MODE) return USERS_CACHE || [];
@@ -3167,15 +3175,21 @@ function renderBoxEditor(sel) {
 }
 function renderAdminFeatures(body) {
   const f = loadFeatures();
-  body.innerHTML = '<div class="admin-note">功能总开关：关闭后除超级管理员外，所有账号都看不到对应功能。</div><div class="perm-grid">'
+  const regOpen = SERVER_MODE ? !!(loadCfgOpenRegister()) : !!f.openRegister;
+  body.innerHTML = '<div class="admin-note">功能总开关：关闭后除超级管理员外，所有账号都看不到对应功能。「开放自助注册」关闭时，登录页不显示注册入口，由管理员在【账号管理】统一开通账号。</div>'
+    + '<div class="perm-grid" style="margin-bottom:12px"><label class="perm-item" style="border-color:#fcd34d;background:#fffbeb"><input type="checkbox" id="ft_openRegister" ' + (regOpen ? 'checked' : '') + '> 开放自助注册</label></div>'
+    + '<div class="perm-grid">'
     + Object.keys(PERM_LABEL).map(k => `<label class="perm-item"><input type="checkbox" id="ft_${k}" ${f[k] ? 'checked' : ''}> ${PERM_LABEL[k]}</label>`).join('')
     + '</div><div style="margin-top:12px"><button class="abtn primary" id="ftSave">保存功能开关</button></div>';
-  $('ftSave').addEventListener('click', () => {
-    const f2 = {};
+  $('ftSave').addEventListener('click', async () => {
+    const f2 = {openRegister: $('ft_openRegister').checked};
     Object.keys(PERM_LABEL).forEach(k => f2[k] = $('ft_' + k).checked);
-    saveFeatures(f2); applyPermissions(); adminLog('修改功能开关'); alert('功能开关已保存');
+    if (SERVER_MODE) { try { await fetch('/api/config', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({openRegister: f2.openRegister})}); } catch (e) {} }
+    saveFeatures(f2);
+    REG_OPEN = f2.openRegister; applyRegOpen(); applyPermissions(); adminLog('修改功能开关'); alert('功能开关已保存');
   });
 }
+function loadCfgOpenRegister() { return REG_OPEN; }
 function renderAdminLogs(body) {
   let logs = [];
   try { logs = JSON.parse(localStorage.getItem(LOGS_KEY)) || []; } catch (e) {}
@@ -3270,6 +3284,8 @@ $('msUploadInput').addEventListener('change', async e => {
   msLog(`更新表已读取：有效制单 ${ok} 个、跳过 ${skip} 个sheet（非制单格式）。待处理PO：`
     + msOrders.map(o => o.po).join('、') + '。点击“生成更新版总表”应用。');
 });
+// 页面加载时按开关应用注册入口显隐（默认关闭自助注册，由管理员后台开通）
+ensureLoaded().then(() => applyRegOpen());
 </script>
 </body>
 </html>
