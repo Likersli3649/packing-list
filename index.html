@@ -1810,6 +1810,7 @@ async function exportGeneralPacking() {
   sheet.mergeCells(r, 1, r, 3); put(r, 1, `款号：${style}`, FT(11, true, FZ), LFT); for (let c = 2; c <= 3; c++) sheet.getCell(r, c).border = B;
   sheet.mergeCells(r, colCODE, r, colCOLOR); put(r, colCODE, `PO：${po}`, FT(11, true, FZ), LFT); sheet.getCell(r, colCOLOR).border = B;
   sheet.mergeCells(r, colGRP, r, colPCS); put(r, colGRP, `日期：${dateStr}`, FT(11, true, FZ), LFT); for (let c = colGRP + 1; c <= colPCS; c++) sheet.getCell(r, c).border = B;
+  if (totalCols > colPCS) { sheet.mergeCells(r, colPCS + 1, r, totalCols); put(r, colPCS + 1, '', FT(11, true, FZ), LFT); for (let c = colPCS + 1; c <= totalCols; c++) sheet.getCell(r, c).border = B; }
   sheet.getRow(r).height = 20; r++;
   if (product) { mergeRow(r, 1, totalCols, `Product：${product}`, FT(10, false, FONT), LFT); sheet.getRow(r).height = 18; r++; }
 
@@ -1972,7 +1973,7 @@ async function exportGeneralPacking() {
   // 装箱数量
   putSecHdr('装箱数量'); colorOrder.forEach(c => putColorRow(packMap, c, true)); putTotalRow((c, sz) => packMap[c]?.[sz] || 0);
   r++; // 空行
-  // 相差（订单-装箱）
+  // 相差（装箱−订单）：装箱比订单少1显示-1，多1显示1
   putSecHdr('相差'); colorOrder.forEach(c => {
     sheet.mergeCells(r, colCTN1, r, colCTNS); put(r, colCTN1, '', FT(11, false, FZ), CTR);
     for (let c2 = colCTN1; c2 <= colCTNS; c2++) sheet.getCell(r, c2).border = B;
@@ -1980,12 +1981,12 @@ async function exportGeneralPacking() {
     put(r, colCOLOR, zhOf(c), FT(10, false, FZ), CTR); sheet.getCell(r, colCOLOR).border = B;
     put(r, colGRP, '', FT(11, false, FZ), CTR); sheet.getCell(r, colGRP).border = B;
     let rt = 0;
-    sizes.forEach((sz, i) => { const dd = (orderMap[c]?.[sz] || 0) - (packMap[c]?.[sz] || 0); rt += dd; put(r, sizeStart + i, dd, FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
+    sizes.forEach((sz, i) => { const dd = (packMap[c]?.[sz] || 0) - (orderMap[c]?.[sz] || 0); rt += dd; put(r, sizeStart + i, dd, FT(11, false, FZ), CTR); sheet.getCell(r, sizeStart + i).border = B; });
     sheet.getCell(r, colPCS).border = B; sheet.getCell(r, colNW).border = B; sheet.getCell(r, colGW).border = B;
     put(r, colCBM, rt, FT(11, false, FZ), CTR); sheet.getCell(r, colCBM).border = B;
     sheet.getRow(r).height = 18; r++;
   });
-  putTotalRow((c, sz) => (orderMap[c]?.[sz] || 0) - (packMap[c]?.[sz] || 0));
+  putTotalRow((c, sz) => (packMap[c]?.[sz] || 0) - (orderMap[c]?.[sz] || 0));
   r++; // 空行
   // 订单数量
   putSecHdr('订单数量'); colorOrder.forEach(c => putColorRow(orderMap, c, false)); putTotalRow((c, sz) => orderMap[c]?.[sz] || 0);
