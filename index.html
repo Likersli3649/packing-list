@@ -156,8 +156,8 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
     <div class="login-item"><label>账号名</label><input type="text" id="regAcc" placeholder="账户唯一识别，可用来登录"></div>
     <div class="login-item"><label>设置密码</label><input type="password" id="regPwd" placeholder="建议使用两种或两种以上字符组合"></div>
     <div class="login-item"><label>确认密码</label><input type="password" id="regPwd2" placeholder="请再次输入密码"></div>
-    <div class="login-item"><label>邮箱验证</label><input type="text" id="regEmail" placeholder="请输入邮箱"></div>
-    <div class="login-item"><label>邮箱验证码</label><div style="display:flex;gap:8px"><input type="text" id="regCode" placeholder="请输入邮箱验证码" style="flex:1"><button type="button" id="regGetCode" class="code-btn">获取验证码</button></div></div>
+    <div class="login-item"><label>手机号验证</label><input type="text" id="regPhone" maxlength="11" placeholder="请输入手机号"></div>
+    <div class="login-item"><label>手机验证码</label><div style="display:flex;gap:8px"><input type="text" id="regCode" placeholder="请输入手机验证码" style="flex:1"><button type="button" id="regGetCode" class="code-btn">获取验证码</button></div></div>
     <button class="login-btn" id="regSubmit">立即注册</button>
     <div class="login-switch">已有账号？<a href="javascript:void(0)" id="toLogin">返回登录</a></div>
   </div>
@@ -2786,24 +2786,25 @@ let regCode = '';
 $('toRegister').addEventListener('click', () => { $('loginPane').style.display = 'none'; $('registerPane').style.display = 'block'; });
 $('toLogin').addEventListener('click', () => { $('registerPane').style.display = 'none'; $('loginPane').style.display = 'block'; });
 $('regGetCode').addEventListener('click', () => {
-  const em = $('regEmail').value.trim();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { alert('请先填写正确的邮箱'); return; }
+  const ph = $('regPhone').value.trim();
+  if (!/^1[3-9]\d{9}$/.test(ph)) { alert('请先填写正确的11位手机号'); return; }
   regCode = String(Math.floor(100000 + Math.random() * 900000));
-  alert('【演示环境，未接真实邮件服务】\n您的邮箱验证码为：' + regCode + '\n（正式部署后将发送至 ' + em + '）');
+  alert('【演示环境，未接真实短信服务】\n您的手机验证码为：' + regCode + '\n（正式部署后将发送至 ' + ph + '）');
 });
 $('regSubmit').addEventListener('click', () => {
   const acc = $('regAcc').value.trim();
   const p1 = $('regPwd').value, p2 = $('regPwd2').value;
-  const em = $('regEmail').value.trim();
+  const ph = $('regPhone').value.trim();
   const code = $('regCode').value.trim();
   if (!acc) { alert('请填写账号名'); return; }
   if (loadUsers().some(x => x.acc === acc)) { alert('该账号已存在'); return; }
   if (!p1 || p1.length < 6) { alert('密码至少6位'); return; }
   if (p1 !== p2) { alert('两次密码不一致'); return; }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { alert('请填写正确的邮箱'); return; }
-  if (!regCode || code !== regCode) { alert('邮箱验证码不正确'); return; }
+  if (!/^1[3-9]\d{9}$/.test(ph)) { alert('请填写正确的11位手机号'); return; }
+  if (loadUsers().some(x => x.phone === ph)) { alert('该手机号已被注册'); return; }
+  if (!regCode || code !== regCode) { alert('手机验证码不正确'); return; }
   const users = loadUsers();
-  users.push({acc, pass: sha256(p1), email: em, role: 'user', customer: '', perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
+  users.push({acc, pass: sha256(p1), phone: ph, email: '', role: 'user', customer: '', perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
   saveUsers(users);
   alert('注册成功！请使用新账号登录。\n初始权限为普通用户，所属客户与更多权限请联系超级管理员在后台设置。');
   $('registerPane').style.display = 'none';
@@ -2848,10 +2849,10 @@ function renderAdminAccounts(body) {
   const users = loadUsers();
   const custs = loadCustomers();
   let html = '<div class="admin-note">新注册账号默认为普通用户。可在此编辑权限、所属客户、启用/停用、重置密码、提升为管理员。</div>';
-  html += '<table><tr><th>账号</th><th>邮箱</th><th>角色</th><th>所属客户</th><th>权限</th><th>状态</th><th>操作</th></tr>';
+  html += '<table><tr><th>账号</th><th>手机号</th><th>角色</th><th>所属客户</th><th>权限</th><th>状态</th><th>操作</th></tr>';
   users.forEach((u, i) => {
     const perms = Object.keys(PERM_LABEL).filter(k => u.perms && u.perms[k]).map(k => PERM_LABEL[k]).join('、') || '无';
-    html += `<tr><td>${esc(u.acc)}</td><td>${esc(u.email)}</td><td>${u.role === 'superadmin' ? '管理员' : '普通'}</td><td>${esc(u.customer || '未设置')}</td><td style="font-size:11px">${esc(perms)}</td><td>${u.enabled ? '启用' : '停用'}</td>
+    html += `<tr><td>${esc(u.acc)}</td><td>${esc(u.phone || '')}</td><td>${u.role === 'superadmin' ? '管理员' : '普通'}</td><td>${esc(u.customer || '未设置')}</td><td style="font-size:11px">${esc(perms)}</td><td>${u.enabled ? '启用' : '停用'}</td>
       <td class="admin-row-actions"><button data-a="edit" data-i="${i}">编辑</button><button data-a="pwd" data-i="${i}">重置密码</button><button data-a="toggle" data-i="${i}">${u.enabled ? '停用' : '启用'}</button><button data-a="del" data-i="${i}">删除</button></td></tr>`;
   });
   html += '</table>';
