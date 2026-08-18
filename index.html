@@ -142,11 +142,25 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
 </head>
 <body class="login-page">
 <div class="login-modal" id="loginModal">
-  <h3>系统登录</h3>
-  <div class="login-sub">SUNGIN PACKING WORKSPACE</div>
-  <div class="login-item"><label>账号 (手机号)</label><input type="text" id="userAcc" placeholder="请输入账号"></div>
-  <div class="login-item"><label>密码</label><input type="password" id="userPwd" placeholder="请输入密码"></div>
-  <button class="login-btn" id="loginSubmit">登录进入系统</button>
+  <div id="loginPane">
+    <h3>系统登录</h3>
+    <div class="login-sub">SUNGIN PACKING WORKSPACE</div>
+    <div class="login-item"><label>账号 (手机号)</label><input type="text" id="userAcc" placeholder="请输入账号"></div>
+    <div class="login-item"><label>密码</label><input type="password" id="userPwd" placeholder="请输入密码"></div>
+    <button class="login-btn" id="loginSubmit">登录进入系统</button>
+    <div class="login-switch">还没有账号？<a href="javascript:void(0)" id="toRegister">立即注册</a></div>
+  </div>
+  <div id="registerPane" style="display:none">
+    <h3>注册账号</h3>
+    <div class="login-sub">CREATE YOUR ACCOUNT</div>
+    <div class="login-item"><label>账号名</label><input type="text" id="regAcc" placeholder="账户唯一识别，可用来登录"></div>
+    <div class="login-item"><label>设置密码</label><input type="password" id="regPwd" placeholder="建议使用两种或两种以上字符组合"></div>
+    <div class="login-item"><label>确认密码</label><input type="password" id="regPwd2" placeholder="请再次输入密码"></div>
+    <div class="login-item"><label>邮箱验证</label><input type="text" id="regEmail" placeholder="请输入邮箱"></div>
+    <div class="login-item"><label>邮箱验证码</label><div style="display:flex;gap:8px"><input type="text" id="regCode" placeholder="请输入邮箱验证码" style="flex:1"><button type="button" id="regGetCode" class="code-btn">获取验证码</button></div></div>
+    <button class="login-btn" id="regSubmit">立即注册</button>
+    <div class="login-switch">已有账号？<a href="javascript:void(0)" id="toLogin">返回登录</a></div>
+  </div>
 </div>
 <div id="mainPage">
   <header class="app-header">
@@ -250,6 +264,38 @@ tr.row-mixed td{background:#e5d7fa;print-color-adjust:exact;-webkit-print-color-
       <div id="msLog" class="box-tip" style="display:none"></div>
     </section>
     <div id="resultArea"></div>
+  </div>
+</div>
+<style>
+.login-switch{margin-top:14px;text-align:center;font-size:13px;color:#64748b}
+.login-switch a{color:#2563eb;text-decoration:none;font-weight:600}
+.code-btn{flex:0 0 110px;height:42px;background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe;border-radius:8px;font-weight:600;cursor:pointer}
+.admin-mask{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;display:none;overflow:auto;padding:24px}
+.admin-panel{max-width:1000px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:24px}
+.admin-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.admin-head h3{font-size:18px;color:#0f172a}
+.admin-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.admin-tab{padding:8px 16px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;cursor:pointer;font-weight:600;color:#334155}
+.admin-tab.on{background:#2563eb;color:#fff;border-color:#2563eb}
+.admin-body table{width:100%;border-collapse:collapse;min-width:0}
+.admin-body th,.admin-body td{border:1px solid #e2e8f0;padding:8px;text-align:center;font-size:13px}
+.admin-body th{background:#f1f5f9}
+.admin-row-actions button{margin:0 3px;padding:4px 10px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;cursor:pointer;font-size:12px}
+.admin-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px}
+.admin-form input,.admin-form select{width:100%}
+.admin-note{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:10px;font-size:12px;margin-bottom:12px}
+</style>
+<div class="admin-mask" id="adminMask">
+  <div class="admin-panel">
+    <div class="admin-head"><h3>管理后台（超级管理员）</h3><button class="code-btn" id="adminClose">关闭</button></div>
+    <div class="admin-tabs">
+      <button class="admin-tab on" data-tab="accounts">账号管理</button>
+      <button class="admin-tab" data-tab="customers">客户管理</button>
+      <button class="admin-tab" data-tab="styles">款号参数</button>
+      <button class="admin-tab" data-tab="box">箱规/件数</button>
+      <button class="admin-tab" data-tab="features">功能开关</button>
+    </div>
+    <div class="admin-body" id="adminBody"></div>
   </div>
 </div>
 <script>
@@ -1044,9 +1090,7 @@ function generatePacking() {
     $('destBar').style.display = 'flex';
     // 按钮开放开关：需要隐藏某个按钮时，把对应行改为 'none'；以后重新开放改回 'inline-block' 即可，
     // 功能代码（函数与事件绑定）始终完整保留，无需重写。
-    $('exportBtn').style.display = 'inline-block';
-    $('labelBtn').style.display = 'inline-block';
-    $('genPackBtn').style.display = 'inline-block'; // 通用装箱单：已开启
+    applyPermissions(); // 按当前账号权限统一显示导出按钮
   } catch (err) {
     alert('生成失败：' + err.message + '\n刷新页面重新登录尝试');
     console.error('生成清单异常', err);
@@ -1678,11 +1722,11 @@ async function exportGeneralPacking() {
   sheet.pageSetup.paperSize = 9; sheet.pageSetup.orientation = 'portrait';
   sheet.pageSetup.margins = {left: 0.512, right: 0.197, top: 0.59, bottom: 0.331, header: 0.3, footer: 0.3};
 
-  // 列（自适应）：A:C=CTN NO, D=CTNS, E=CODE, F=COLOR, G=色组, 8..=尺码列, 之后 PCS/NW/GW/CBM
+  // 列（自适应）：A:C=CTN NO, D=CTNS, E=CODE, F=COLOR, G=色组, 8..=尺码列, 之后 PCS/NW/GW/CBM/MEAS
   const colCTN1 = 1, colCTNS = 4, colCODE = 5, colCOLOR = 6, colGRP = 7;
   const sizeStart = 8;
-  const colPCS = sizeStart + n, colNW = colPCS + 1, colGW = colNW + 1, colCBM = colGW + 1;
-  const totalCols = colCBM;
+  const colPCS = sizeStart + n, colNW = colPCS + 1, colGW = colNW + 1, colCBM = colGW + 1, colMEAS = colCBM + 1;
+  const totalCols = colMEAS;
   sheet.getColumn(colCTN1).width = 7;
   sheet.getColumn(colCTNS).width = 6;
   sheet.getColumn(colCODE).width = 22;
@@ -1693,6 +1737,7 @@ async function exportGeneralPacking() {
   sheet.getColumn(colNW).width = 9;
   sheet.getColumn(colGW).width = 9;
   sheet.getColumn(colCBM).width = 9;
+  sheet.getColumn(colMEAS).width = 13;
 
   const FONT = 'Arial';
   const FZ = '微软雅黑';
@@ -1750,6 +1795,8 @@ async function exportGeneralPacking() {
   for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colGW).border = B;
   sheet.mergeCells(hr, colCBM, hr + 1, colCBM); put(hr, colCBM, 'CBM', FT(11, true, FZ), CTR);
   for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colCBM).border = B;
+  sheet.mergeCells(hr, colMEAS, hr + 1, colMEAS); put(hr, colMEAS, 'MEAS', FT(11, true, FZ), CTR);
+  for (let rr2 = hr; rr2 <= hr + 1; rr2++) sheet.getCell(rr2, colMEAS).border = B;
   sizes.forEach((sz, i) => put(hr + 1, sizeStart + i, sz, FT(11, true, FZ), CTR));
   sheet.getRow(hr).height = 18; sheet.getRow(hr + 1).height = 18;
   r = hr + 2;
@@ -1784,6 +1831,8 @@ async function exportGeneralPacking() {
     put(r, colNW, pd.nw, FT(11, false, FZ), CTR); applyFill(colNW); sheet.getCell(r, colNW).border = B;
     put(r, colGW, pd.gw, FT(11, false, FZ), CTR); applyFill(colGW); sheet.getCell(r, colGW).border = B;
     put(r, colCBM, pd.cbm, FT(11, false, FZ), CTR); applyFill(colCBM); sheet.getCell(r, colCBM).border = B;
+    const measVal = (pd.L || pd.W || pd.H) ? `${pd.L}*${pd.W}*${pd.H}CM` : '';
+    put(r, colMEAS, measVal, FT(10, false, FZ), CTR); applyFill(colMEAS); sheet.getCell(r, colMEAS).border = B;
     sheet.getRow(r).height = 18;
     r++;
   });
@@ -1804,6 +1853,7 @@ async function exportGeneralPacking() {
   tPut(colNW, tNw.toFixed(3));
   tPut(colGW, tGw.toFixed(3));
   tPut(colCBM, tCbm.toFixed(4));
+  tPut(colMEAS, '');
   sheet.getRow(r).height = 18;
   r++;
 
@@ -2664,16 +2714,31 @@ async function msApply() {
 }
 
 /* ==================== 登录与事件绑定 ==================== */
+function doLogin(userObj, isSuper) {
+  SESSION = isSuper ? {acc: '超级管理员', role: 'superadmin', customer: '', perms: allPerms()} : userObj;
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); } catch (e) {}
+  $('loginModal').style.display = 'none';
+  $('mainPage').style.display = 'block';
+  document.body.classList.remove('login-page');
+  setTimeout(() => { initPage(); applyPermissions(); }, 100);
+}
 $('loginSubmit').addEventListener('click', () => {
-  if (sha256($('userAcc').value.trim()) === ACCOUNT_HASH
-      && sha256($('userPwd').value.trim()) === PASSWORD_HASH) {
-    $('loginModal').style.display = 'none';
-    $('mainPage').style.display = 'block';
-    document.body.classList.remove('login-page');
-    setTimeout(initPage, 100);
-  } else {
-    alert('账号或密码输入错误，请重新填写');
+  const acc = $('userAcc').value.trim();
+  const pwd = $('userPwd').value;
+  // 1) 已注册账号
+  const u = loadUsers().find(x => x.acc === acc);
+  if (u) {
+    if (!u.enabled) { alert('该账号已被停用，请联系管理员'); return; }
+    if (sha256(pwd) !== u.pass) { alert('账号或密码输入错误，请重新填写'); return; }
+    doLogin(u, u.role === 'superadmin');
+    return;
   }
+  // 2) 超级管理员（内置）
+  if (sha256(acc) === ACCOUNT_HASH && sha256(pwd) === PASSWORD_HASH) {
+    doLogin(null, true);
+    return;
+  }
+  alert('账号或密码输入错误，请重新填写');
 });
 $('userAcc').addEventListener('keydown', e => { if (e.key === 'Enter') $('userPwd').focus(); });
 $('userPwd').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginSubmit').click(); });
@@ -2683,7 +2748,190 @@ $('mixedEnable').addEventListener('change', function () {
   state.mixed.enabled = this.checked;
   $('mixedSizesWrap').style.display = this.checked ? 'inline-flex' : 'none';
 });
-$('mixedSizeCount').addEventListener('change', function () { state.mixed.sizesPerBox = +this.value || 3; });
+/* ==================== 多账号 / 注册 / 权限 / 管理后台 ==================== */
+const USERS_KEY = 'packing_users';
+const CUSTOMERS_KEY = 'packing_customers';
+const SESSION_KEY = 'packing_session';
+const FEATURES_KEY = 'packing_features';
+let SESSION = null;
+try { SESSION = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { SESSION = null; }
+function loadUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch (e) { return []; } }
+function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
+function loadCustomers() { try { return JSON.parse(localStorage.getItem(CUSTOMERS_KEY)) || ['QUINCE', 'MASSIMO DUTTI']; } catch (e) { return ['QUINCE', 'MASSIMO DUTTI']; } }
+function saveCustomers(c) { localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(c)); }
+function loadFeatures() { try { return Object.assign(allPerms(), JSON.parse(localStorage.getItem(FEATURES_KEY) || '{}')); } catch (e) { return allPerms(); } }
+function saveFeatures(f) { localStorage.setItem(FEATURES_KEY, JSON.stringify(f)); }
+function allPerms() { return {exportExcel: true, exportLabels: true, exportGeneral: true, editParams: true, manageSku: true}; }
+function defaultPerms() { return {exportExcel: true, exportLabels: true, exportGeneral: false, editParams: false, manageSku: false}; }
+const PERM_LABEL = {exportExcel: '导出Excel', exportLabels: '导出箱贴', exportGeneral: '导出通用装箱单', editParams: '修改箱规/件数', manageSku: '管理SKU'};
+
+function applyPermissions() {
+  const super_ = SESSION && SESSION.role === 'superadmin';
+  const p = (SESSION && SESSION.perms) || defaultPerms();
+  const f = loadFeatures();
+  const on = k => super_ || (p[k] && f[k]);
+  if ($('exportBtn')) $('exportBtn').style.display = on('exportExcel') ? 'inline-block' : 'none';
+  if ($('labelBtn')) $('labelBtn').style.display = on('exportLabels') ? 'inline-block' : 'none';
+  if ($('genPackBtn')) $('genPackBtn').style.display = on('exportGeneral') ? 'inline-block' : 'none';
+  if ($('importSkuBtn')) $('importSkuBtn').style.display = on('manageSku') ? '' : 'none';
+  if ($('importBarcodeBtn')) $('importBarcodeBtn').style.display = on('manageSku') ? '' : 'none';
+  document.querySelectorAll('.carton-load-set, .card .weight-line').forEach(el => {
+    el.style.opacity = on('editParams') ? '1' : '0.6';
+    el.querySelectorAll('input').forEach(inp => inp.disabled = !on('editParams'));
+  });
+}
+
+/* ---- 注册 ---- */
+let regCode = '';
+$('toRegister').addEventListener('click', () => { $('loginPane').style.display = 'none'; $('registerPane').style.display = 'block'; });
+$('toLogin').addEventListener('click', () => { $('registerPane').style.display = 'none'; $('loginPane').style.display = 'block'; });
+$('regGetCode').addEventListener('click', () => {
+  const em = $('regEmail').value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { alert('请先填写正确的邮箱'); return; }
+  regCode = String(Math.floor(100000 + Math.random() * 900000));
+  alert('【演示环境，未接真实邮件服务】\n您的邮箱验证码为：' + regCode + '\n（正式部署后将发送至 ' + em + '）');
+});
+$('regSubmit').addEventListener('click', () => {
+  const acc = $('regAcc').value.trim();
+  const p1 = $('regPwd').value, p2 = $('regPwd2').value;
+  const em = $('regEmail').value.trim();
+  const code = $('regCode').value.trim();
+  if (!acc) { alert('请填写账号名'); return; }
+  if (loadUsers().some(x => x.acc === acc)) { alert('该账号已存在'); return; }
+  if (!p1 || p1.length < 6) { alert('密码至少6位'); return; }
+  if (p1 !== p2) { alert('两次密码不一致'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { alert('请填写正确的邮箱'); return; }
+  if (!regCode || code !== regCode) { alert('邮箱验证码不正确'); return; }
+  const users = loadUsers();
+  users.push({acc, pass: sha256(p1), email: em, role: 'user', customer: '', perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
+  saveUsers(users);
+  alert('注册成功！请使用新账号登录。\n初始权限为普通用户，所属客户与更多权限请联系超级管理员在后台设置。');
+  $('registerPane').style.display = 'none';
+  $('loginPane').style.display = 'block';
+  $('userAcc').value = acc;
+  $('userPwd').value = '';
+});
+
+/* ---- 管理后台暗门：logo连点5次 或 Ctrl+Shift+A（仅超级管理员） ---- */
+let logoClicks2 = 0, logoTimer2 = null;
+function tryOpenAdmin() {
+  if (!SESSION || SESSION.role !== 'superadmin') { alert('仅超级管理员可进入管理后台'); return; }
+  $('adminMask').style.display = 'block';
+  adminTab = 'accounts';
+  renderAdmin();
+}
+document.querySelector('.brand-logo')?.addEventListener('click', () => {
+  logoClicks2++;
+  clearTimeout(logoTimer2);
+  logoTimer2 = setTimeout(() => logoClicks2 = 0, 2000);
+  if (logoClicks2 >= 5) { logoClicks2 = 0; tryOpenAdmin(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && String(e.key).toLowerCase() === 'a') { e.preventDefault(); tryOpenAdmin(); }
+});
+$('adminClose').addEventListener('click', () => { $('adminMask').style.display = 'none'; });
+document.querySelectorAll('.admin-tab').forEach(b => b.addEventListener('click', () => {
+  adminTab = b.dataset.tab;
+  document.querySelectorAll('.admin-tab').forEach(x => x.classList.toggle('on', x === b));
+  renderAdmin();
+}));
+let adminTab = 'accounts';
+function renderAdmin() {
+  const body = $('adminBody');
+  if (adminTab === 'accounts') return renderAdminAccounts(body);
+  if (adminTab === 'customers') return renderAdminCustomers(body);
+  if (adminTab === 'styles') return renderAdminStyles(body);
+  if (adminTab === 'box') return renderAdminBox(body);
+  if (adminTab === 'features') return renderAdminFeatures(body);
+}
+function renderAdminAccounts(body) {
+  const users = loadUsers();
+  const custs = loadCustomers();
+  let html = '<div class="admin-note">新注册账号默认为普通用户。可在此编辑权限、所属客户、启用/停用、重置密码、提升为管理员。</div>';
+  html += '<table><tr><th>账号</th><th>邮箱</th><th>角色</th><th>所属客户</th><th>权限</th><th>状态</th><th>操作</th></tr>';
+  users.forEach((u, i) => {
+    const perms = Object.keys(PERM_LABEL).filter(k => u.perms && u.perms[k]).map(k => PERM_LABEL[k]).join('、') || '无';
+    html += `<tr><td>${esc(u.acc)}</td><td>${esc(u.email)}</td><td>${u.role === 'superadmin' ? '管理员' : '普通'}</td><td>${esc(u.customer || '未设置')}</td><td style="font-size:11px">${esc(perms)}</td><td>${u.enabled ? '启用' : '停用'}</td>
+      <td class="admin-row-actions"><button data-a="edit" data-i="${i}">编辑</button><button data-a="pwd" data-i="${i}">重置密码</button><button data-a="toggle" data-i="${i}">${u.enabled ? '停用' : '启用'}</button><button data-a="del" data-i="${i}">删除</button></td></tr>`;
+  });
+  html += '</table>';
+  html += '<h4 style="margin:14px 0 8px">新增账号</h4><div class="admin-form"><input id="naAcc" placeholder="账号名"><input id="naPwd" placeholder="初始密码(≥6位)"><select id="naCust"><option value="">未设置客户</option>' + custs.map(c => `<option>${esc(c)}</option>`).join('') + '</select><select id="naRole"><option value="user">普通用户</option><option value="superadmin">管理员</option></select><button class="code-btn" id="naAdd">添加</button></div>';
+  body.innerHTML = html;
+  body.querySelectorAll('.admin-row-actions button').forEach(b => b.addEventListener('click', () => adminUserAction(b.dataset.a, +b.dataset.i)));
+  $('naAdd').addEventListener('click', () => {
+    const acc = $('naAcc').value.trim(), pwd = $('naPwd').value;
+    if (!acc || pwd.length < 6) { alert('账号名必填，密码至少6位'); return; }
+    const users = loadUsers();
+    if (users.some(x => x.acc === acc)) { alert('账号已存在'); return; }
+    users.push({acc, pass: sha256(pwd), email: '', role: $('naRole').value, customer: $('naCust').value, perms: defaultPerms(), enabled: true, createdAt: new Date().toISOString()});
+    saveUsers(users); renderAdmin();
+  });
+}
+function adminUserAction(a, i) {
+  const users = loadUsers();
+  const u = users[i];
+  if (!u) return;
+  if (a === 'toggle') { u.enabled = !u.enabled; saveUsers(users); return renderAdmin(); }
+  if (a === 'del') { if (confirm('删除账号 ' + u.acc + '？')) { users.splice(i, 1); saveUsers(users); return renderAdmin(); } return; }
+  if (a === 'pwd') { const p = prompt('为 ' + u.acc + ' 设置新密码（≥6位）：'); if (p && p.length >= 6) { u.pass = sha256(p); saveUsers(users); alert('密码已重置'); } return; }
+  if (a === 'edit') {
+    const custs = loadCustomers();
+    const cust = prompt('所属客户（可选：' + custs.join('/') + '）：', u.customer || '');
+    if (cust !== null) u.customer = cust;
+    const role = prompt('角色（user=普通 / superadmin=管理员）：', u.role);
+    if (role === 'user' || role === 'superadmin') u.role = role;
+    const perms = Object.assign({}, defaultPerms());
+    Object.keys(PERM_LABEL).forEach(k => {
+      const v = confirm((u.acc + ' 是否开通【' + PERM_LABEL[k] + '】权限？'));
+      perms[k] = v;
+    });
+    u.perms = perms;
+    saveUsers(users); renderAdmin();
+  }
+}
+function renderAdminCustomers(body) {
+  const custs = loadCustomers();
+  let html = '<div class="admin-form"><input id="ncName" placeholder="新客户名称"><button class="code-btn" id="ncAdd">添加</button></div>';
+  html += '<table><tr><th>客户</th><th>操作</th></tr>';
+  custs.forEach((c, i) => html += `<tr><td>${esc(c)}</td><td class="admin-row-actions"><button data-i="${i}">删除</button></td></tr>`);
+  html += '</table>';
+  body.innerHTML = html;
+  $('ncAdd').addEventListener('click', () => { const v = $('ncName').value.trim(); if (!v) return; const c = loadCustomers(); if (!c.includes(v)) c.push(v); saveCustomers(c); renderAdmin(); });
+  body.querySelectorAll('.admin-row-actions button').forEach(b => b.addEventListener('click', () => { const c = loadCustomers(); c.splice(+b.dataset.i, 1); saveCustomers(c); renderAdmin(); }));
+}
+function renderAdminStyles(body) {
+  body.innerHTML = '<div class="admin-note">款号参数（净重/大箱件数/小箱件数）以 JSON 形式编辑，保存后立即生效。</div><textarea id="stJson" style="width:100%;height:300px;font-family:monospace;font-size:12px"></textarea><div style="margin-top:8px"><button class="code-btn" id="stSave">保存款号参数</button></div>';
+  $('stJson').value = JSON.stringify(styleParamLib, null, 2);
+  $('stSave').addEventListener('click', () => {
+    try { const o = JSON.parse($('stJson').value); Object.keys(styleParamLib).forEach(k => delete styleParamLib[k]); Object.assign(styleParamLib, o); alert('款号参数已保存'); }
+    catch (e) { alert('JSON 格式错误：' + e.message); }
+  });
+}
+function renderAdminBox(body) {
+  body.innerHTML = '<div class="admin-note">全局默认箱规与每箱件数（新尺码缺省时使用）。</div><div class="admin-form">'
+    + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>大箱件数 ${sz}</label><input id="bb_${sz}" type="number" value="${sizeDefaults.bigQty[sz] || ''}"></div>`).join('')
+    + ['XS', 'S', 'M', 'L', 'XL'].map(sz => `<div><label>小箱件数 ${sz}</label><input id="sb_${sz}" type="number" value="${sizeDefaults.smallQty[sz] || ''}"></div>`).join('')
+    + '</div><button class="code-btn" id="bxSave">保存箱规/件数</button>';
+  $('bxSave').addEventListener('click', () => {
+    ['XS', 'S', 'M', 'L', 'XL'].forEach(sz => {
+      if ($('bb_' + sz).value) sizeDefaults.bigQty[sz] = +$('bb_' + sz).value;
+      if ($('sb_' + sz).value) sizeDefaults.smallQty[sz] = +$('sb_' + sz).value;
+    });
+    ensureSizeMaps(); renderBoxQty();
+    alert('箱规/件数已保存');
+  });
+}
+function renderAdminFeatures(body) {
+  const f = loadFeatures();
+  body.innerHTML = '<div class="admin-note">功能总开关：关闭后除超级管理员外，所有账号都看不到对应功能。</div><div class="admin-form">'
+    + Object.keys(PERM_LABEL).map(k => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="ft_${k}" ${f[k] ? 'checked' : ''}> ${PERM_LABEL[k]}</label>`).join('')
+    + '</div><button class="code-btn" id="ftSave">保存功能开关</button>';
+  $('ftSave').addEventListener('click', () => {
+    const f2 = {};
+    Object.keys(PERM_LABEL).forEach(k => f2[k] = $('ft_' + k).checked);
+    saveFeatures(f2); applyPermissions(); alert('功能开关已保存');
+  });
+}
 $('genBtn').addEventListener('click', generatePacking);
 $('exportBtn').addEventListener('click', exportExcel);
 $('labelBtn').addEventListener('click', exportLabels);
