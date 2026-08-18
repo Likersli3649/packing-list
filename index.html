@@ -2930,6 +2930,7 @@ $('regSubmit').addEventListener('click', async () => {
 /* ---- 管理后台暗门：logo连点5次 或 Ctrl+Shift+A（仅超级管理员） ---- */
 let logoClicks2 = 0, logoTimer2 = null;
 async function tryOpenAdmin() {
+  STATE_LOADED = false;
   await ensureLoaded();
   if (!SESSION || SESSION.role !== 'superadmin') { alert('仅超级管理员可进入管理后台'); return; }
   $('adminMask').style.display = 'block';
@@ -3039,8 +3040,11 @@ function adminUserAction(a, i) {
     return;
   }
   if (a === 'del') {
-    confirmModal('删除账号', `确定删除账号【${u.acc}】？此操作不可恢复。`, () => {
-      users.splice(i, 1); saveUsers(users); adminLog('删除账号 ' + u.acc); closeModal(); renderAdmin();
+    confirmModal('删除账号', `确定删除账号【${u.acc}】？此操作不可恢复。`, async () => {
+      if (SERVER_MODE) { try { await fetch('/api/userdel', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({acc: u.acc})}); } catch (e) {} }
+      else { users.splice(i, 1); saveUsers(users); }
+      adminLog('删除账号 ' + u.acc); closeModal();
+      STATE_LOADED = false; await ensureLoaded(); renderAdmin();
     });
     return;
   }
