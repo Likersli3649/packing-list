@@ -2378,16 +2378,21 @@ $('barcodeFileInput').addEventListener('change', async e => {
   if (lots.length) mergeLotEntries(lots); // LOT号+件数 → 仅存内存（每订单LOT不同，不落本地库）
   rebuildSkuMap();
   rebuildProductMap();
-  // 若颜色块已存在（先导入订单再导入Barcodes），回填各行 LOT
+  // 若颜色块已存在（先导入订单再导入Barcodes），回填各行 SKU 与 LOT
   const curPo = ($('poInput')?.value || '').trim();
+  const curStyle = ($('styleInput')?.value || '').trim();
   let filled = 0;
-  if (curPo && state.colors.length) {
+  if (state.colors.length) {
     state.colors.forEach(c => {
       Object.keys(c.sizes).forEach(sz => {
         const cell = c.sizes[sz];
         if (+cell.qty > 0) {
-          const info = lookupLotInfo(curPo, c.name, sz);
-          if (info.length) { cell.lot = info.map(l => l.lot).join('/'); filled++; }
+          const sku = lookupSku(curStyle, c.name, sz);
+          if (sku) cell.barcode = sku;
+          if (curPo) {
+            const info = lookupLotInfo(curPo, c.name, sz);
+            if (info.length) { cell.lot = info.map(l => l.lot).join('/'); filled++; }
+          }
         }
       });
     });
@@ -3286,6 +3291,24 @@ $('msUploadInput').addEventListener('change', async e => {
 });
 // 页面加载时按开关应用注册入口显隐（默认关闭自助注册，由管理员后台开通）
 ensureLoaded().then(() => applyRegOpen());
+</script>
+<script>
+// 移除托管平台注入的"千问办公"角标（仅隐藏平台角标，不影响本页自有品牌）
+(function(){
+  var css='#mulepage-footer,#mulepage-bar,.mulepage-footer,.mulepage-float,.mulepage-bar,#mulepage-footer-link,#mulepage-bar-link{display:none!important;height:0!important;width:0!important;overflow:hidden!important}';
+  var st=document.createElement('style'); st.textContent=css; (document.head||document.documentElement).appendChild(st);
+  function kill(){
+    try{
+      ['#mulepage-footer','#mulepage-bar','.mulepage-footer','.mulepage-float','.mulepage-bar'].forEach(function(sel){
+        document.querySelectorAll(sel).forEach(function(n){ n.remove(); });
+      });
+    }catch(e){}
+  }
+  kill();
+  var mo=new MutationObserver(function(){ kill(); });
+  mo.observe(document.documentElement,{childList:true,subtree:true});
+  setTimeout(kill,600); setTimeout(kill,1500); setTimeout(kill,3000);
+})();
 </script>
 </body>
 </html>
